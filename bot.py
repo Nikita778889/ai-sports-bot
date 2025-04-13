@@ -59,9 +59,11 @@ async def button(update: Update, context: CallbackContext):
             await query.edit_message_text("Сначала оформи подписку, чтобы получить прогноз.")
 
 import os
+from telegram.ext import ApplicationBuilder
 
 if __name__ == '__main__':
     TOKEN = os.getenv("YOUR_TELEGRAM_BOT_TOKEN")
+    print("TOKEN:", repr(TOKEN))  # Вставь это
     app = ApplicationBuilder().token(TOKEN).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(button))
