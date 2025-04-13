@@ -61,7 +61,7 @@ async def button(update: Update, context: CallbackContext):
 import os
 
 if __name__ == '__main__':
-    TOKEN = os.getenv("YOUR_TELEGRAM_BOT_TOKEN")
+    TOKEN = os.getenv("7897558184:AAGy6Ys3JGZNYGTP3pua0UrfoA_vSmzi4H8")
     app = ApplicationBuilder().token(TOKEN).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(button))
