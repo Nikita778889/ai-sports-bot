@@ -58,6 +58,8 @@ async def button(update: Update, context: CallbackContext):
         else:
             await query.edit_message_text("Сначала оформи подписку, чтобы получить прогноз.")
 
+import os
+
 if __name__ == '__main__':
     TOKEN = os.getenv("YOUR_TELEGRAM_BOT_TOKEN")
     app = ApplicationBuilder().token(TOKEN).build()
