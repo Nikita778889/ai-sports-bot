@@ -8,6 +8,7 @@ from telegram import Update, ReplyKeyboardMarkup, InlineKeyboardButton, InlineKe
 from telegram.ext import ApplicationBuilder, CommandHandler, CallbackContext, MessageHandler, CallbackQueryHandler, filters
 
 user_subscriptions = {}
+user_spin_status = {}  # отслеживаем, крутил ли пользователь
 SUBSCRIPTIONS = {
     'week': 7,
     '2weeks': 14,
@@ -20,11 +21,15 @@ HEADERS = {
     "x-apisports-key": API_KEY
 }
 
+FREE_SPIN_INTERVAL = datetime.timedelta(hours=48)
+
+
 def translate_to_english(text):
     try:
         return GoogleTranslator(source='auto', target='en').translate(text)
     except:
         return text
+
 
 def get_today_matches():
     tz = pytz.timezone("Europe/Kiev")
@@ -46,6 +51,7 @@ def get_today_matches():
         return matches
     return []
 
+
 def find_match_by_name(name):
     name = translate_to_english(name)
     tz = pytz.timezone("Europe/Kiev")
@@ -66,19 +72,22 @@ def find_match_by_name(name):
                 return match_str
     return None
 
+
 async def start(update: Update, context: CallbackContext):
     keyboard = [
         ["Купить подписку"],
         ["Запросить прогноз"],
         ["Экспресс от AI"],
         ["Прогноз по матчу"],
-        ["Проверить подписку"]
+        ["Проверить подписку"],
+        ["Крутануть колесо"]
     ]
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
     await update.message.reply_text(
         "Привет! Я AI Sports Bot. Я анализирую матчи и даю лучшие прогнозы по подписке.\nВыбери действие:",
         reply_markup=reply_markup
     )
+
 
 async def generate_ai_prediction():
     matches = get_today_matches()
@@ -89,6 +98,7 @@ async def generate_ai_prediction():
     prediction = random.choice(options)
     comment = "AI проанализировал форму команд и выбрал наиболее вероятный исход."
     return f"\U0001F3DF Матч: {match}\n\U0001F3AF Прогноз: {prediction}\n\U0001F916 Комментарий: {comment}"
+
 
 async def generate_ai_express():
     matches = get_today_matches()
@@ -104,6 +114,7 @@ async def generate_ai_express():
         response += f"{i}. {match} — {pred} (коэф. {koef})\n"
     response += f"\n\U0001F4B0 Общий коэф: {round(total_koef, 2)}"
     return response
+
 
 async def handle_text(update: Update, context: CallbackContext):
     text = update.message.text
@@ -158,6 +169,24 @@ async def handle_text(update: Update, context: CallbackContext):
         else:
             await update.message.reply_text("У вас нет активной подписки.")
 
+    elif text == "Крутануть колесо":
+        now = datetime.datetime.now()
+        spin_info = user_spin_status.get(user_id)
+        last_free_spin = spin_info.get("last_free") if spin_info else None
+        can_free_spin = not last_free_spin or (now - last_free_spin >= FREE_SPIN_INTERVAL)
+
+        if can_free_spin:
+            spin_result = random.randint(1, 100)
+            if spin_result <= 5:
+                user_subscriptions[user_id] = now + datetime.timedelta(days=1)
+                await update.message.reply_text("🎉 Поздравляем! Вы выиграли подписку на 1 день!")
+            else:
+                await update.message.reply_text("Увы, сегодня не повезло. Хотите попробовать снова за 5$?")
+            user_spin_status[user_id] = {"last_free": now}
+        else:
+            await update.message.reply_text("Вы уже использовали бесплатное вращение за последние 48 часов. Следующее будет доступно позже. Хотите попробовать за 5$?")
+
+
 async def handle_subscription_choice(update: Update, context: CallbackContext):
     query = update.callback_query
     await query.answer()
@@ -173,6 +202,7 @@ async def handle_subscription_choice(update: Update, context: CallbackContext):
     elif query.data == "buy_month":
         user_subscriptions[user_id] = now + datetime.timedelta(days=30)
         await query.edit_message_text("Подписка на месяц активирована ✅")
+
 
 if __name__ == '__main__':
     TOKEN = os.getenv("YOUR_TELEGRAM_BOT_TOKEN")
