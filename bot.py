@@ -25,11 +25,13 @@ WHEEL_SPIN_GIF_URL = "https://media.giphy.com/media/3og0IOUWBvU5S2F1ja/giphy.gif
 WHEEL_IMAGE_URL = "https://i.imgur.com/JQ2W8Te.png"
 WHEEL_WIN_GIF_URL = "https://media.giphy.com/media/26AHONQ79FdWZhAI0/giphy.gif"
 
+
 def translate_to_english(text):
     try:
         return GoogleTranslator(source='auto', target='en').translate(text)
     except:
         return text
+
 
 def get_today_matches():
     tz = pytz.timezone("Europe/Kiev")
@@ -48,6 +50,7 @@ def get_today_matches():
                 matches.append(f"{teams['home']['name']} vs {teams['away']['name']} в {time_str} (по Киеву)")
         return matches
     return []
+
 
 def find_match_by_name(name):
     name = translate_to_english(name)
@@ -68,9 +71,14 @@ def find_match_by_name(name):
                 return f"{fixture['teams']['home']['name']} vs {fixture['teams']['away']['name']} в {time_str} (по Киеву)"
     return None
 
+
 async def start(update: Update, context: CallbackContext):
-    keyboard = [["Купить подписку"], ["Запросить прогноз"], ["Экспресс от AI"], ["Прогноз по матчу"], ["Проверить подписку"], ["Крутануть колесо"]]
-    await update.message.reply_text("Привет! Я AI Sports Bot. Я анализирую матчи и даю лучшие прогнозы по подписке.\nВыбери действие:", reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True))
+    keyboard = [["Купить подписку"], ["Запросить прогноз"], ["Экспресс от AI"], ["Прогноз по матчу"], ["Проверить подписку"], [InlineKeyboardButton("🎡 Крутануть колесо", callback_data="spin_wheel")]]
+    await update.message.reply_text(
+        "Привет! Я AI Sports Bot. Я анализирую матчи и даю лучшие прогнозы по подписке.\nВыбери действие:",
+        reply_markup=InlineKeyboardMarkup(keyboard)
+    )
+
 
 async def generate_ai_prediction():
     matches = get_today_matches()
@@ -78,7 +86,8 @@ async def generate_ai_prediction():
         return "Сегодня нет матчей или произошла ошибка API."
     match = random.choice(matches)
     prediction = random.choice(["П1", "П2", "ТБ 2.5", "ТМ 2.5", "Обе забьют"])
-    return f"\U0001F3DF Матч: {match}\n\U0001F3AF Прогноз: {prediction}\n\U0001F916 Комментарий: AI проанализировал форму команд и выбрал наиболее вероятный исход."
+    return f"🏟 Матч: {match}\n🎯 Прогноз: {prediction}\n🤖 Комментарий: AI проанализировал форму команд и выбрал наиболее вероятный исход."
+
 
 async def generate_ai_express():
     matches = get_today_matches()
@@ -92,7 +101,8 @@ async def generate_ai_express():
         koef = round(random.uniform(1.3, 2.1), 2)
         total_koef *= koef
         response += f"{i}. {match} — {pred} (коэф. {koef})\n"
-    return response + f"\n\U0001F4B0 Общий коэф: {round(total_koef, 2)}"
+    return response + f"\n💰 Общий коэф: {round(total_koef, 2)}"
+
 
 async def handle_text(update: Update, context: CallbackContext):
     text = update.message.text
@@ -103,7 +113,7 @@ async def handle_text(update: Update, context: CallbackContext):
         match = find_match_by_name(text)
         if match:
             prediction = random.choice(["П1", "П2", "ТБ 2.5", "ТМ 2.5", "Обе забьют"])
-            await update.message.reply_text(f"\U0001F3DF Матч: {match}\n\U0001F3AF Прогноз: {prediction}\n\U0001F916 AI проанализировал команды и выбрал лучший исход.")
+            await update.message.reply_text(f"🏟 Матч: {match}\n🎯 Прогноз: {prediction}\n🤖 AI проанализировал команды и выбрал лучший исход.")
         else:
             await update.message.reply_text("Матч не найден. Убедитесь, что ввели название правильно.")
         return
@@ -133,26 +143,32 @@ async def handle_text(update: Update, context: CallbackContext):
             await update.message.reply_text(f"Ваша подписка активна до {expiry.strftime('%Y-%m-%d')}.")
         else:
             await update.message.reply_text("У вас нет активной подписки.")
-    elif text == "Крутануть колесо":
-        now = datetime.datetime.now()
-        spin_info = user_spin_status.get(user_id, {})
-        last_free_spin = spin_info.get("last_free")
-        can_free_spin = not last_free_spin or (now - last_free_spin >= FREE_SPIN_INTERVAL)
 
-        await update.message.reply_animation(animation=WHEEL_SPIN_GIF_URL, caption="🎡 Крутим колесо фортуны...")
-        await asyncio.sleep(2)
-        await update.message.reply_photo(photo=WHEEL_IMAGE_URL)
 
-        if can_free_spin:
-            result = random.randint(1, 100)
-            if result <= 5:
-                user_subscriptions[user_id] = now + datetime.timedelta(days=1)
-                await update.message.reply_animation(animation=WHEEL_WIN_GIF_URL, caption="🎉 Поздравляем! Вы выиграли подписку на 1 день!")
-            else:
-                await update.message.reply_text("Увы, не повезло. Хотите попробовать снова за 5$?")
-            user_spin_status[user_id] = {"last_free": now}
+async def spin_wheel(update: Update, context: CallbackContext):
+    query = update.callback_query
+    await query.answer()
+    user_id = query.from_user.id
+    now = datetime.datetime.now()
+    spin_info = user_spin_status.get(user_id, {})
+    last_free_spin = spin_info.get("last_free")
+    can_free_spin = not last_free_spin or (now - last_free_spin >= FREE_SPIN_INTERVAL)
+
+    await query.message.reply_animation(animation=WHEEL_SPIN_GIF_URL, caption="🎡 Крутим колесо фортуны...")
+    await asyncio.sleep(2)
+    await query.message.reply_photo(photo=WHEEL_IMAGE_URL)
+
+    if can_free_spin:
+        result = random.randint(1, 100)
+        if result <= 5:
+            user_subscriptions[user_id] = now + datetime.timedelta(days=1)
+            await query.message.reply_animation(animation=WHEEL_WIN_GIF_URL, caption="🎉 Поздравляем! Вы выиграли подписку на 1 день!")
         else:
-            await update.message.reply_text("Бесплатное вращение будет доступно через 48 часов. Хотите попробовать за 5$?")
+            await query.message.reply_text("Увы, не повезло. Хотите попробовать снова за 5$?")
+        user_spin_status[user_id] = {"last_free": now}
+    else:
+        await query.message.reply_text("Бесплатное вращение будет доступно через 48 часов. Хотите попробовать за 5$?")
+
 
 async def handle_subscription_choice(update: Update, context: CallbackContext):
     query = update.callback_query
@@ -169,10 +185,12 @@ async def handle_subscription_choice(update: Update, context: CallbackContext):
         user_subscriptions[user_id] = now + datetime.timedelta(days=30)
         await query.edit_message_text("Подписка на месяц активирована ✅")
 
+
 if __name__ == '__main__':
     TOKEN = os.getenv("YOUR_TELEGRAM_BOT_TOKEN")
     app = ApplicationBuilder().token(TOKEN).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
-    app.add_handler(CallbackQueryHandler(handle_subscription_choice))
+    app.add_handler(CallbackQueryHandler(handle_subscription_choice, pattern="^buy_"))
+    app.add_handler(CallbackQueryHandler(spin_wheel, pattern="^spin_wheel$"))
     app.run_polling()
