@@ -143,6 +143,13 @@ async def check_luck(update: Update, context: CallbackContext):
             result += "\n\n😔 Неудача. Попробуйте позже или купите подписку."
         await query.message.reply_text(result)
 
+async def handle_callback(update: Update, context: CallbackContext):
+    data = update.callback_query.data
+    if data.startswith("buy_"):
+        await handle_subscription_choice(update, context)
+    elif data == "check_luck":
+        await check_luck(update, context)
+
 async def handle_text(update: Update, context: CallbackContext):
     text = update.message.text
     user_id = update.message.from_user.id
@@ -222,6 +229,5 @@ if __name__ == '__main__':
     app = ApplicationBuilder().token(TOKEN).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
-    app.add_handler(CallbackQueryHandler(handle_subscription_choice))
-    app.add_handler(CallbackQueryHandler(check_luck, pattern="^check_luck$"))
+    app.add_handler(CallbackQueryHandler(handle_callback))
     app.run_polling()
