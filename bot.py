@@ -4,8 +4,8 @@ import random
 import requests
 import pytz
 from deep_translator import GoogleTranslator
-from telegram import Update, ReplyKeyboardMarkup
-from telegram.ext import ApplicationBuilder, CommandHandler, CallbackContext, MessageHandler, filters
+from telegram import Update, ReplyKeyboardMarkup, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import ApplicationBuilder, CommandHandler, CallbackContext, MessageHandler, CallbackQueryHandler, filters
 
 user_subscriptions = {}
 SUBSCRIPTIONS = {
@@ -123,7 +123,13 @@ async def handle_text(update: Update, context: CallbackContext):
 
     expiry = user_subscriptions.get(user_id)
     if text == "Купить подписку":
-        await update.message.reply_text("Выберите срок подписки: 1 неделя, 2 недели или месяц.")
+        keyboard = [
+            [InlineKeyboardButton("1 неделя", callback_data='buy_week'),
+             InlineKeyboardButton("2 недели", callback_data='buy_2weeks'),
+             InlineKeyboardButton("Месяц", callback_data='buy_month')]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await update.message.reply_text("Выберите срок подписки:", reply_markup=reply_markup)
 
     elif text == "Запросить прогноз":
         if expiry and expiry > datetime.datetime.now():
@@ -152,9 +158,26 @@ async def handle_text(update: Update, context: CallbackContext):
         else:
             await update.message.reply_text("У вас нет активной подписки.")
 
+async def handle_subscription_choice(update: Update, context: CallbackContext):
+    query = update.callback_query
+    await query.answer()
+    user_id = query.from_user.id
+    now = datetime.datetime.now()
+
+    if query.data == "buy_week":
+        user_subscriptions[user_id] = now + datetime.timedelta(days=7)
+        await query.edit_message_text("Подписка на 1 неделю активирована ✅")
+    elif query.data == "buy_2weeks":
+        user_subscriptions[user_id] = now + datetime.timedelta(days=14)
+        await query.edit_message_text("Подписка на 2 недели активирована ✅")
+    elif query.data == "buy_month":
+        user_subscriptions[user_id] = now + datetime.timedelta(days=30)
+        await query.edit_message_text("Подписка на месяц активирована ✅")
+
 if __name__ == '__main__':
     TOKEN = os.getenv("YOUR_TELEGRAM_BOT_TOKEN")
     app = ApplicationBuilder().token(TOKEN).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
+    app.add_handler(CallbackQueryHandler(handle_subscription_choice))
     app.run_polling()
