@@ -174,46 +174,10 @@ async def handle_subscription_choice(update: Update, context: CallbackContext):
         user_subscriptions[user_id] = now + datetime.timedelta(days=30)
         await query.edit_message_text("Подписка на месяц активирована ✅")
 
-
-
-async def check_luck(update: Update, context: CallbackContext):
-    query = update.callback_query
-    await query.answer()
-    user_id = query.from_user.id
-    now = datetime.datetime.now()
-    last_try = user_spin_status.get(user_id, {}).get("last_luck")
-    paid_try = user_spin_status.get(user_id, {}).get("paid")
-
-    is_free_try = not last_try or (now - last_try >= LUCK_CHECK_INTERVAL)
-
-    if is_free_try:
-        # бесплатная попытка — 5 ячеек, 1 выигрыш
-        grid = ["❌"] * 5
-        win_index = random.randint(0, 4)
-        grid[win_index] = "🎉"
-        message = "🎲 Бесплатная попытка: в одной из 5 ячеек спрятан бесплатный прогноз."
-        message += "\n\n" + " ".join(grid)
-        if grid[win_index] == "🎉":
-            user_spin_status[user_id] = {"last_luck": now}
-            await query.message.reply_text(message + "\n\n🎁 Вы выиграли бесплатный прогноз!")
-        else:
-            user_spin_status[user_id] = {"last_luck": now}
-            await query.message.reply_text(message + "\n\nУвы, вы не выиграли. Хотите попробовать снова за 5$? В платной попытке 3 ячейки, шанс выше!")
-    else:
-        # платная попытка — 3 ячейки, 1 выигрыш
-        grid = ["❌"] * 3
-        win_index = random.randint(0, 2)
-        grid[win_index] = "🎁"
-        message = "💸 Платная попытка за 5$: выигрыш в одной из 3 ячеек."
-        message += "\n\n" + " ".join(grid)
-        if grid[win_index] == "🎁":
-            await query.message.reply_text(message + "\n\n🎉 Поздравляем! Вы выиграли 1 день доступа к прогнозам!")
-        else:
-            await query.message.reply_text(message + "\n\n😔 Не повезло. Попробуйте снова позже или оформите подписку.")
-
 if __name__ == '__main__':
     TOKEN = os.getenv("YOUR_TELEGRAM_BOT_TOKEN")
     app = ApplicationBuilder().token(TOKEN).build()
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(CallbackQueryHandler(check_luck, pattern="^check_luck$"))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
+    app.add_handler(CallbackQueryHandler(handle_subscription_choice))
     app.run_polling()
