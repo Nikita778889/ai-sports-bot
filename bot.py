@@ -2,6 +2,7 @@ import os
 import datetime
 import random
 import requests
+import pytz
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, CallbackContext, CallbackQueryHandler
 
@@ -19,14 +20,17 @@ HEADERS = {
 }
 
 def get_today_matches():
-    today = datetime.date.today().isoformat()
+    tz = pytz.timezone("Europe/Kiev")
+    today = datetime.datetime.now(tz).date().isoformat()
     response = requests.get(API_URL.format(date=today), headers=HEADERS)
     if response.status_code == 200:
         data = response.json()
         matches = []
         for fixture in data.get("response", [])[:10]:
             teams = fixture["teams"]
-            match_str = f"{teams['home']['name']} vs {teams['away']['name']}"
+            match_time_utc = datetime.datetime.fromisoformat(fixture["fixture"]["date"].replace("Z", "+00:00"))
+            match_time_kiev = match_time_utc.astimezone(tz).strftime('%H:%M')
+            match_str = f"{teams['home']['name']} vs {teams['away']['name']} в {match_time_kiev} (по Киеву)"
             matches.append(match_str)
         return matches
     return []
@@ -60,7 +64,7 @@ async def generate_ai_express():
         return "Недостаточно матчей сегодня для экспресса."
     selected = random.sample(matches, 5)
     total_koef = 1
-    response = "⚡ Экспресс от AI:\n"
+    response = "\u26a1 Экспресс от AI:\n"
     for i, match in enumerate(selected, 1):
         pred = random.choice(["П1", "П2", "ТБ 2.5", "ТМ 2.5", "Обе забьют"])
         koef = round(random.uniform(1.3, 2.1), 2)
