@@ -1,6 +1,7 @@
 import os
 import datetime
 import random
+import requests
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, CallbackContext, CallbackQueryHandler
 
@@ -11,19 +12,24 @@ SUBSCRIPTIONS = {
     'month': 30,
 }
 
-# Пример спортивных матчей (заглушка)
-SPORTS_MATCHES = [
-    ("Real Madrid vs Barcelona", "Футбол"),
-    ("Lakers vs Celtics", "Баскетбол"),
-    ("Djokovic vs Alcaraz", "Теннис"),
-    ("Avalanche vs Penguins", "Хоккей"),
-    ("PSG vs Lyon", "Футбол"),
-    ("Bayern vs Dortmund", "Футбол"),
-    ("Man City vs Arsenal", "Футбол"),
-    ("Napoli vs Juventus", "Футбол"),
-    ("Heat vs Bulls", "Баскетбол"),
-    ("Nadal vs Medvedev", "Теннис")
-]
+API_KEY = "1b3004c7259586cf921ab379bc84fd7a"
+API_URL = "https://v3.football.api-sports.io/fixtures?date={date}"
+HEADERS = {
+    "x-apisports-key": API_KEY
+}
+
+def get_today_matches():
+    today = datetime.date.today().isoformat()
+    response = requests.get(API_URL.format(date=today), headers=HEADERS)
+    if response.status_code == 200:
+        data = response.json()
+        matches = []
+        for fixture in data.get("response", [])[:10]:
+            teams = fixture["teams"]
+            match_str = f"{teams['home']['name']} vs {teams['away']['name']}"
+            matches.append(match_str)
+        return matches
+    return []
 
 async def start(update: Update, context: CallbackContext):
     keyboard = [
@@ -39,21 +45,27 @@ async def start(update: Update, context: CallbackContext):
     )
 
 async def generate_ai_prediction():
-    match, sport = random.choice(SPORTS_MATCHES)
+    matches = get_today_matches()
+    if not matches:
+        return "Сегодня нет матчей или произошла ошибка API."
+    match = random.choice(matches)
     options = ["П1", "П2", "ТБ 2.5", "ТМ 2.5", "Обе забьют"]
     prediction = random.choice(options)
-    comment = "AI проанализировал последние встречи и выбрал этот вариант как самый вероятный."
-    return f"🏟 Матч: {match}\n🎯 Прогноз: {prediction}\n📌 Вид спорта: {sport}\n🤖 Комментарий: {comment}"
+    comment = "AI проанализировал форму команд и выбрал наиболее вероятный исход."
+    return f"🏟 Матч: {match}\n🎯 Прогноз: {prediction}\n🤖 Комментарий: {comment}"
 
 async def generate_ai_express():
-    selected = random.sample(SPORTS_MATCHES, 5)
+    matches = get_today_matches()
+    if len(matches) < 5:
+        return "Недостаточно матчей сегодня для экспресса."
+    selected = random.sample(matches, 5)
     total_koef = 1
     response = "⚡ Экспресс от AI:\n"
-    for i, (match, sport) in enumerate(selected, 1):
+    for i, match in enumerate(selected, 1):
         pred = random.choice(["П1", "П2", "ТБ 2.5", "ТМ 2.5", "Обе забьют"])
         koef = round(random.uniform(1.3, 2.1), 2)
         total_koef *= koef
-        response += f"{i}. {match} ({sport}) — {pred} (коэф. {koef})\n"
+        response += f"{i}. {match} — {pred} (коэф. {koef})\n"
     response += f"\n💰 Общий коэф: {round(total_koef, 2)}"
     return response
 
@@ -103,7 +115,6 @@ async def button(update: Update, context: CallbackContext):
 
 if __name__ == '__main__':
     TOKEN = os.getenv("YOUR_TELEGRAM_BOT_TOKEN")
-    print("TOKEN:", repr(TOKEN))  # для отладки
     app = ApplicationBuilder().token(TOKEN).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(button))
