@@ -4,7 +4,7 @@ import random
 import requests
 import pytz
 from deep_translator import GoogleTranslator
-from telegram import Update, ReplyKeyboardMarkup, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Update, ReplyKeyboardMarkup, InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton
 from telegram.ext import ApplicationBuilder, CommandHandler, CallbackContext, MessageHandler, CallbackQueryHandler, filters
 
 user_subscriptions = {}
@@ -70,19 +70,21 @@ def find_match_by_name(name):
     return None
 
 async def start(update: Update, context: CallbackContext):
-    keyboard = [
-        ["Купить подписку"],
-        ["Запросить прогноз"],
-        ["Экспресс от AI"],
-        ["Прогноз по матчу"],
-        ["Проверить подписку"],
-        ["Проверить удачу"]
-    ]
+    keyboard = [[
+        KeyboardButton("Купить подписку"),
+        KeyboardButton("Запросить прогноз"),
+        KeyboardButton("Экспресс от AI")
+    ], [
+        KeyboardButton("Прогноз по матчу"),
+        KeyboardButton("Проверить подписку"),
+        KeyboardButton("Проверить удачу")
+    ]]
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
     await update.message.reply_text(
         "Привет! Я AI Sports Bot. Я анализирую матчи и даю лучшие прогнозы по подписке.\nВыбери действие:",
         reply_markup=reply_markup
     )
+
 
 async def generate_ai_prediction():
     matches = get_today_matches()
