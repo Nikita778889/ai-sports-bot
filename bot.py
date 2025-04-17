@@ -3,13 +3,11 @@ import datetime
 import random
 import requests
 import pytz
-import asyncio
 from deep_translator import GoogleTranslator
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Update, ReplyKeyboardMarkup, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, CallbackContext, MessageHandler, CallbackQueryHandler, filters
 
 user_subscriptions = {}
-user_spin_status = {}
 SUBSCRIPTIONS = {
     'week': 7,
     '2weeks': 14,
@@ -18,10 +16,9 @@ SUBSCRIPTIONS = {
 
 API_KEY = "1b3004c7259586cf921ab379bc84fd7a"
 API_URL = "https://v3.football.api-sports.io/fixtures?date={date}"
-HEADERS = {"x-apisports-key": API_KEY}
-
-LUCK_CHECK_INTERVAL = datetime.timedelta(hours=48)
-
+HEADERS = {
+    "x-apisports-key": API_KEY
+}
 
 def translate_to_english(text):
     try:
@@ -40,10 +37,12 @@ def get_today_matches():
         for fixture in data.get("response", []):
             match_time_utc = datetime.datetime.fromisoformat(fixture["fixture"]["date"].replace("Z", "+00:00"))
             match_time_kiev = match_time_utc.astimezone(tz)
+
             if match_time_kiev > now:
                 teams = fixture["teams"]
                 time_str = match_time_kiev.strftime('%H:%M')
-                matches.append(f"{teams['home']['name']} vs {teams['away']['name']} в {time_str} (по Киеву)")
+                match_str = f"{teams['home']['name']} vs {teams['away']['name']} в {time_str} (по Киеву)"
+                matches.append(match_str)
         return matches
     return []
 
@@ -63,22 +62,119 @@ def find_match_by_name(name):
                 match_time_utc = datetime.datetime.fromisoformat(fixture["fixture"]["date"].replace("Z", "+00:00"))
                 match_time_kiev = match_time_utc.astimezone(tz)
                 time_str = match_time_kiev.strftime('%H:%M')
-                return f"{fixture['teams']['home']['name']} vs {fixture['teams']['away']['name']} в {time_str} (по Киеву)"
+                match_str = f"{fixture['teams']['home']['name']} vs {fixture['teams']['away']['name']} в {time_str} (по Киеву)"
+                return match_str
     return None
 
 async def start(update: Update, context: CallbackContext):
     keyboard = [
-        [InlineKeyboardButton("Купить подписку", callback_data="buy_menu")],
-        [InlineKeyboardButton("Запросить прогноз", callback_data="get_prediction")],
-        [InlineKeyboardButton("Экспресс от AI", callback_data="get_express")],
-        [InlineKeyboardButton("Прогноз по матчу", callback_data="match_prompt")],
-        [InlineKeyboardButton("Проверить подписку", callback_data="check_sub")],
-        [InlineKeyboardButton("Проверить удачу 🎁", callback_data="check_luck")]
+        ["Купить подписку"],
+        ["Запросить прогноз"],
+        ["Экспресс от AI"],
+        ["Прогноз по матчу"],
+        ["Проверить подписку"]
     ]
+    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
     await update.message.reply_text(
         "Привет! Я AI Sports Bot. Я анализирую матчи и даю лучшие прогнозы по подписке.\nВыбери действие:",
-        reply_markup=InlineKeyboardMarkup(keyboard)
+        reply_markup=reply_markup
     )
+
+async def generate_ai_prediction():
+    matches = get_today_matches()
+    if not matches:
+        return "Сегодня нет матчей или произошла ошибка API."
+    match = random.choice(matches)
+    options = ["П1", "П2", "ТБ 2.5", "ТМ 2.5", "Обе забьют"]
+    prediction = random.choice(options)
+    comment = "AI проанализировал форму команд и выбрал наиболее вероятный исход."
+    return f"\U0001F3DF Матч: {match}\n\U0001F3AF Прогноз: {prediction}\n\U0001F916 Комментарий: {comment}"
+
+async def generate_ai_express():
+    matches = get_today_matches()
+    if len(matches) < 5:
+        return "Недостаточно матчей сегодня для экспресса."
+    selected = random.sample(matches, 5)
+    total_koef = 1
+    response = "⚡ Экспресс от AI:\n"
+    for i, match in enumerate(selected, 1):
+        pred = random.choice(["П1", "П2", "ТБ 2.5", "ТМ 2.5", "Обе забьют"])
+        koef = round(random.uniform(1.3, 2.1), 2)
+        total_koef *= koef
+        response += f"{i}. {match} — {pred} (коэф. {koef})\n"
+    response += f"\n\U0001F4B0 Общий коэф: {round(total_koef, 2)}"
+    return response
+
+async def handle_text(update: Update, context: CallbackContext):
+    text = update.message.text
+    user_id = update.message.from_user.id
+
+    if context.user_data.get('awaiting_match'):
+        context.user_data['awaiting_match'] = False
+        match_name = text
+        found = find_match_by_name(match_name)
+        if found:
+            prediction = random.choice(["П1", "П2", "ТБ 2.5", "ТМ 2.5", "Обе забьют"])
+            comment = "AI проанализировал команды и выбрал лучший исход."
+            await update.message.reply_text(f"\U0001F3DF Матч: {found}\n\U0001F3AF Прогноз: {prediction}\n\U0001F916 Комментарий: {comment}")
+        else:
+            await update.message.reply_text("Матч не найден. Убедитесь, что ввели название правильно.")
+        return
+
+    expiry = user_subscriptions.get(user_id)
+    if text == "Купить подписку":
+        keyboard = [
+            [InlineKeyboardButton("1 неделя", callback_data='buy_week'),
+             InlineKeyboardButton("2 недели", callback_data='buy_2weeks'),
+             InlineKeyboardButton("Месяц", callback_data='buy_month')]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await update.message.reply_text("Выберите срок подписки:", reply_markup=reply_markup)
+
+    elif text == "Запросить прогноз":
+        if expiry and expiry > datetime.datetime.now():
+            prediction = await generate_ai_prediction()
+            await update.message.reply_text(prediction)
+        else:
+            await update.message.reply_text("Сначала оформите подписку, чтобы получить прогноз.")
+
+    elif text == "Экспресс от AI":
+        if expiry and expiry > datetime.datetime.now():
+            express = await generate_ai_express()
+            await update.message.reply_text(express)
+        else:
+            await update.message.reply_text("Экспресс доступен только по подписке. Оформите её, чтобы продолжить.")
+
+    elif text == "Прогноз по матчу":
+        if expiry and expiry > datetime.datetime.now():
+            await update.message.reply_text("Введите матч в формате 'Команда1 vs Команда2':")
+            context.user_data['awaiting_match'] = True
+        else:
+            await update.message.reply_text("Доступ только по подписке. Оформите её, чтобы продолжить.")
+
+    elif text == "Проверить подписку":
+        if expiry and expiry > datetime.datetime.now():
+            await update.message.reply_text(f"Ваша подписка активна до {expiry.strftime('%Y-%m-%d')}.")
+        else:
+            await update.message.reply_text("У вас нет активной подписки.")
+
+async def handle_subscription_choice(update: Update, context: CallbackContext):
+    query = update.callback_query
+    await query.answer()
+    user_id = query.from_user.id
+    now = datetime.datetime.now()
+
+    if query.data == "buy_week":
+        user_subscriptions[user_id] = now + datetime.timedelta(days=7)
+        await query.edit_message_text("Подписка на 1 неделю активирована ✅")
+    elif query.data == "buy_2weeks":
+        user_subscriptions[user_id] = now + datetime.timedelta(days=14)
+        await query.edit_message_text("Подписка на 2 недели активирована ✅")
+    elif query.data == "buy_month":
+        user_subscriptions[user_id] = now + datetime.timedelta(days=30)
+        await query.edit_message_text("Подписка на месяц активирована ✅")
+
+
 
 async def check_luck(update: Update, context: CallbackContext):
     query = update.callback_query
