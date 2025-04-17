@@ -21,17 +21,21 @@ HEADERS = {
 
 def get_today_matches():
     tz = pytz.timezone("Europe/Kiev")
-    today = datetime.datetime.now(tz).date().isoformat()
+    now = datetime.datetime.now(tz)
+    today = now.date().isoformat()
     response = requests.get(API_URL.format(date=today), headers=HEADERS)
     if response.status_code == 200:
         data = response.json()
         matches = []
-        for fixture in data.get("response", [])[:10]:
-            teams = fixture["teams"]
+        for fixture in data.get("response", []):
             match_time_utc = datetime.datetime.fromisoformat(fixture["fixture"]["date"].replace("Z", "+00:00"))
-            match_time_kiev = match_time_utc.astimezone(tz).strftime('%H:%M')
-            match_str = f"{teams['home']['name']} vs {teams['away']['name']} в {match_time_kiev} (по Киеву)"
-            matches.append(match_str)
+            match_time_kiev = match_time_utc.astimezone(tz)
+
+            if match_time_kiev > now:
+                teams = fixture["teams"]
+                time_str = match_time_kiev.strftime('%H:%M')
+                match_str = f"{teams['home']['name']} vs {teams['away']['name']} в {time_str} (по Киеву)"
+                matches.append(match_str)
         return matches
     return []
 
@@ -56,7 +60,7 @@ async def generate_ai_prediction():
     options = ["П1", "П2", "ТБ 2.5", "ТМ 2.5", "Обе забьют"]
     prediction = random.choice(options)
     comment = "AI проанализировал форму команд и выбрал наиболее вероятный исход."
-    return f"🏟 Матч: {match}\n🎯 Прогноз: {prediction}\n🤖 Комментарий: {comment}"
+    return f"\ud83c\udfdf Матч: {match}\n\ud83c\udfaf Прогноз: {prediction}\n\ud83e\udd16 Комментарий: {comment}"
 
 async def generate_ai_express():
     matches = get_today_matches()
@@ -70,7 +74,7 @@ async def generate_ai_express():
         koef = round(random.uniform(1.3, 2.1), 2)
         total_koef *= koef
         response += f"{i}. {match} — {pred} (коэф. {koef})\n"
-    response += f"\n💰 Общий коэф: {round(total_koef, 2)}"
+    response += f"\n\ud83d\udcb0 Общий коэф: {round(total_koef, 2)}"
     return response
 
 async def button(update: Update, context: CallbackContext):
