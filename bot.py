@@ -20,10 +20,8 @@ API_KEY = "1b3004c7259586cf921ab379bc84fd7a"
 API_URL = "https://v3.football.api-sports.io/fixtures?date={date}"
 HEADERS = {"x-apisports-key": API_KEY}
 
-FREE_SPIN_INTERVAL = datetime.timedelta(hours=48)
-WHEEL_SPIN_GIF_URL = "https://media.giphy.com/media/3og0IOUWBvU5S2F1ja/giphy.gif"
-WHEEL_IMAGE_URL = "https://i.imgur.com/JQ2W8Te.png"
-WHEEL_WIN_GIF_URL = "https://media.giphy.com/media/26AHONQ79FdWZhAI0/giphy.gif"
+LUCK_CHECK_INTERVAL = datetime.timedelta(hours=48)
+
 
 def translate_to_english(text):
     try:
@@ -75,11 +73,51 @@ async def start(update: Update, context: CallbackContext):
         [InlineKeyboardButton("Экспресс от AI", callback_data="get_express")],
         [InlineKeyboardButton("Прогноз по матчу", callback_data="match_prompt")],
         [InlineKeyboardButton("Проверить подписку", callback_data="check_sub")],
-        [InlineKeyboardButton("🎡 Крутануть колесо", callback_data="spin_wheel")]
+        [InlineKeyboardButton("Проверить удачу 🎁", callback_data="check_luck")]
     ]
     await update.message.reply_text(
         "Привет! Я AI Sports Bot. Я анализирую матчи и даю лучшие прогнозы по подписке.\nВыбери действие:",
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
 
-# остальной код остается без изменений
+async def check_luck(update: Update, context: CallbackContext):
+    query = update.callback_query
+    await query.answer()
+    user_id = query.from_user.id
+    now = datetime.datetime.now()
+    last_try = user_spin_status.get(user_id, {}).get("last_luck")
+    paid_try = user_spin_status.get(user_id, {}).get("paid")
+
+    is_free_try = not last_try or (now - last_try >= LUCK_CHECK_INTERVAL)
+
+    if is_free_try:
+        # бесплатная попытка — 5 ячеек, 1 выигрыш
+        grid = ["❌"] * 5
+        win_index = random.randint(0, 4)
+        grid[win_index] = "🎉"
+        message = "🎲 Бесплатная попытка: в одной из 5 ячеек спрятан бесплатный прогноз."
+        message += "\n\n" + " ".join(grid)
+        if grid[win_index] == "🎉":
+            user_spin_status[user_id] = {"last_luck": now}
+            await query.message.reply_text(message + "\n\n🎁 Вы выиграли бесплатный прогноз!")
+        else:
+            user_spin_status[user_id] = {"last_luck": now}
+            await query.message.reply_text(message + "\n\nУвы, вы не выиграли. Хотите попробовать снова за 5$? В платной попытке 3 ячейки, шанс выше!")
+    else:
+        # платная попытка — 3 ячейки, 1 выигрыш
+        grid = ["❌"] * 3
+        win_index = random.randint(0, 2)
+        grid[win_index] = "🎁"
+        message = "💸 Платная попытка за 5$: выигрыш в одной из 3 ячеек."
+        message += "\n\n" + " ".join(grid)
+        if grid[win_index] == "🎁":
+            await query.message.reply_text(message + "\n\n🎉 Поздравляем! Вы выиграли 1 день доступа к прогнозам!")
+        else:
+            await query.message.reply_text(message + "\n\n😔 Не повезло. Попробуйте снова позже или оформите подписку.")
+
+if __name__ == '__main__':
+    TOKEN = os.getenv("YOUR_TELEGRAM_BOT_TOKEN")
+    app = ApplicationBuilder().token(TOKEN).build()
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CallbackQueryHandler(check_luck, pattern="^check_luck$"))
+    app.run_polling()
