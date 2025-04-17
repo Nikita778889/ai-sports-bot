@@ -75,7 +75,8 @@ async def start(update: Update, context: CallbackContext):
         ["Запросить прогноз"],
         ["Экспресс от AI"],
         ["Прогноз по матчу"],
-        ["Проверить подписку"]
+        ["Проверить подписку"],
+        ["Проверить удачу"]
     ]
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
     await update.message.reply_text(
@@ -108,6 +109,40 @@ async def generate_ai_express():
     response += f"\n\U0001F4B0 Общий коэф: {round(total_koef, 2)}"
     return response
 
+async def check_luck(update: Update, context: CallbackContext):
+    query = update.callback_query
+    await query.answer()
+    user_id = query.from_user.id
+    now = datetime.datetime.now()
+    last_try = user_luck.get(user_id, {}).get("last")
+    is_free_try = not last_try or (now - last_try >= LUCK_INTERVAL)
+
+    if is_free_try:
+        grid = ["❌"] * 5
+        win_index = random.randint(0, 4)
+        grid[win_index] = "🎁"
+        result = "🎲 Бесплатная попытка (раз в 48 часов): одна из 5 ячеек содержит бесплатный прогноз.\n"
+        result += " ".join(grid)
+        if win_index == grid.index("🎁"):
+            prediction = await generate_ai_prediction()
+            result += f"\n\n🎉 Вы выиграли бесплатный прогноз!\n{prediction}"
+        else:
+            result += "\n\n😔 Увы, не повезло. Хотите попробовать снова за 5$? В платной попытке 3 ячейки — шанс выше!"
+        user_luck[user_id] = {"last": now}
+        await query.message.reply_text(result)
+    else:
+        grid = ["❌"] * 3
+        win_index = random.randint(0, 2)
+        grid[win_index] = "🎁"
+        result = "💸 Платная попытка за 5$: одна из 3 ячеек содержит бесплатный день доступа.\n"
+        result += " ".join(grid)
+        if win_index == grid.index("🎁"):
+            prediction = await generate_ai_prediction()
+            result += f"\n\n🎉 Победа! Вы получаете 1 день доступа.\n{prediction}"
+        else:
+            result += "\n\n😔 Неудача. Попробуйте позже или купите подписку."
+        await query.message.reply_text(result)
+
 async def handle_text(update: Update, context: CallbackContext):
     text = update.message.text
     user_id = update.message.from_user.id
@@ -133,12 +168,6 @@ async def handle_text(update: Update, context: CallbackContext):
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         await update.message.reply_text("Выберите срок подписки:", reply_markup=reply_markup)
-
-    # Кнопка "Проверить удачу"
-    await update.message.reply_text(
-        "🎁 Хочешь испытать удачу? Нажми на кнопку ниже:",
-        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🎁 Проверить удачу", callback_data="check_luck")]])
-    )
 
     elif text == "Запросить прогноз":
         if expiry and expiry > datetime.datetime.now():
@@ -167,6 +196,11 @@ async def handle_text(update: Update, context: CallbackContext):
         else:
             await update.message.reply_text("У вас нет активной подписки.")
 
+    elif text == "Проверить удачу":
+        keyboard = [[InlineKeyboardButton("🎁 Проверить удачу", callback_data="check_luck")]]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await update.message.reply_text("🎁 Хочешь испытать удачу? Нажми на кнопку ниже:", reply_markup=reply_markup)
+
 async def handle_subscription_choice(update: Update, context: CallbackContext):
     query = update.callback_query
     await query.answer()
@@ -182,54 +216,6 @@ async def handle_subscription_choice(update: Update, context: CallbackContext):
     elif query.data == "buy_month":
         user_subscriptions[user_id] = now + datetime.timedelta(days=30)
         await query.edit_message_text("Подписка на месяц активирована ✅")
-
-async def check_luck(update: Update, context: CallbackContext):
-    query = update.callback_query
-    await query.answer()
-    user_id = query.from_user.id
-    now = datetime.datetime.now()
-    last_try = user_luck.get(user_id, {}).get("last")
-    is_free_try = not last_try or (now - last_try >= LUCK_INTERVAL)
-
-    if is_free_try:
-        grid = ["❌"] * 5
-        win_index = random.randint(0, 4)
-        grid[win_index] = "🎁"
-        result = "🎲 Бесплатная попытка (раз в 48 часов): одна из 5 ячеек содержит бесплатный прогноз."
-        result += "
-
-" + " ".join(grid)
-        if win_index == grid.index("🎁"):
-            prediction = await generate_ai_prediction()
-            result += f"
-
-🎉 Вы выиграли бесплатный прогноз!
-{prediction}"
-        else:
-            result += "
-
-😔 Увы, не повезло. Хотите попробовать снова за 5$? В платной попытке 3 ячейки — шанс выше!"
-        user_luck[user_id] = {"last": now}
-        await query.message.reply_text(result)
-    else:
-        grid = ["❌"] * 3
-        win_index = random.randint(0, 2)
-        grid[win_index] = "🎁"
-        result = "💸 Платная попытка за 5$: одна из 3 ячеек содержит бесплатный день доступа."
-        result += "
-
-" + " ".join(grid)
-        if win_index == grid.index("🎁"):
-            prediction = await generate_ai_prediction()
-            result += f"
-
-🎉 Победа! Вы получаете 1 день доступа.
-{prediction}"
-        else:
-            result += "
-
-😔 Неудача. Попробуйте позже или купите подписку."
-        await query.message.reply_text(result)
 
 if __name__ == '__main__':
     TOKEN = os.getenv("YOUR_TELEGRAM_BOT_TOKEN")
