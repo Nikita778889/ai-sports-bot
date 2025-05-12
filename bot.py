@@ -15,14 +15,7 @@ SUBSCRIPTIONS = {
 }
 
 ODDS_API_KEY = "d0b434508c21688f0655d4eef265b4c5"
-SOCCER_LEAGUES = [
-    "soccer_epl",
-    "soccer_uefa_champs_league",
-    "soccer_spain_la_liga",
-    "soccer_italy_serie_a",
-    "soccer_germany_bundesliga",
-    "soccer_france_ligue_one"
-]
+SPORT_KEY = "soccer"
 
 def translate_to_english(text):
     try:
@@ -32,40 +25,31 @@ def translate_to_english(text):
 
 def get_odds_matches():
     matches = []
-    now = datetime.datetime.now(datetime.timezone.utc)
-    for league in SOCCER_LEAGUES:
-        url = f"https://api.the-odds-api.com/v4/sports/{league}/odds/?regions=eu&oddsFormat=decimal&markets=h2h&apiKey={ODDS_API_KEY}"
-        try:
-            response = requests.get(url)
-            if response.status_code == 200:
-                data = response.json()
-                print(f"[{league}] получено матчей: {len(data)}")
-                for match in data:
-                    commence_time = datetime.datetime.fromisoformat(match['commence_time'].replace("Z", "+00:00"))
-                    if commence_time < now:
-                        continue
-                    tz = pytz.timezone("Europe/Kiev")
-                    match_time_kiev = commence_time.astimezone(tz)
-                    time_str = match_time_kiev.strftime('%H:%M')
-                    home = match['home_team']
-                    away = next(t for t in match['teams'] if t != home)
-                    bookmakers = match.get("bookmakers", [])
-                    print(f"  → {home} vs {away}, bookmakers: {len(bookmakers)}")
-                    odds_text = "коэффициенты недоступны"
-                    if bookmakers:
-                        markets = bookmakers[0].get("markets", [])
-                        print(f"    → markets: {len(markets)}")
-                        if markets and "outcomes" in markets[0]:
-                            outcomes = markets[0]["outcomes"]
-                            odds_text = ", ".join([f"{o['name']}: {o['price']}" for o in outcomes])
-                    match_str = f"{home} vs {away} в {time_str} (по Киеву) — {odds_text}"
-                    matches.append(match_str)
-            else:
-                print(f"Ошибка API {response.status_code}: {response.text}")
-        except Exception as e:
-            print(f"Исключение при обращении к API {league}: {e}")
-            continue
-    print(f"Всего найдено матчей: {len(matches)}")
+    tz = pytz.timezone("Europe/Kiev")
+    now = datetime.datetime.now(tz)
+    end_of_day = now.replace(hour=23, minute=59, second=59)
+
+    from_iso = now.isoformat()
+    to_iso = end_of_day.isoformat()
+
+    url = f"https://api.the-odds-api.com/v4/sports/{SPORT_KEY}/events?apiKey={ODDS_API_KEY}&commenceTimeFrom={from_iso}&commenceTimeTo={to_iso}"
+    try:
+        response = requests.get(url)
+        if response.status_code == 200:
+            data = response.json()
+            for match in data:
+                home = match['home_team']
+                away = match['away_team']
+                match_time = datetime.datetime.fromisoformat(match['commence_time'].replace("Z", "+00:00"))
+                match_time_kiev = match_time.astimezone(tz)
+                time_str = match_time_kiev.strftime('%H:%M')
+                match_str = f"{home} vs {away} в {time_str} (по Киеву)"
+                matches.append(match_str)
+        else:
+            print(f"Ошибка API: {response.status_code} — {response.text}")
+    except Exception as e:
+        print(f"Ошибка запроса к OddsAPI: {e}")
+
     return matches
 
 async def start(update: Update, context: CallbackContext):
