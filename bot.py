@@ -14,11 +14,16 @@ SUBSCRIPTIONS = {
     'month': 30,
 }
 
-API_KEY = "1b3004c7259586cf921ab379bc84fd7a"
-API_URL = "https://v3.football.api-sports.io/fixtures?date={date}"
-HEADERS = {
-    "x-apisports-key": API_KEY
-}
+ODDS_API_KEY = os.getenv("ODDS_API_KEY")
+ODDS_API_URL_TEMPLATE = "https://api.the-odds-api.com/v4/sports/{league}/odds/?regions=eu&markets=h2h&apiKey={}".format(ODDS_API_KEY)
+SOCCER_LEAGUES = [
+    "soccer_epl",
+    "soccer_uefa_champs_league",
+    "soccer_spain_la_liga",
+    "soccer_italy_serie_a",
+    "soccer_germany_bundesliga",
+    "soccer_france_ligue_one"
+]
 
 def translate_to_english(text):
     try:
@@ -26,52 +31,45 @@ def translate_to_english(text):
     except:
         return text
 
-def get_today_matches():
-    tz = pytz.timezone("Europe/Kiev")
-    now = datetime.datetime.now(tz)
-    today = now.date().isoformat()
-    response = requests.get(API_URL.format(date=today), headers=HEADERS)
-    if response.status_code == 200:
-        data = response.json()
-        matches = []
-        for fixture in data.get("response", []):
-            match_time_utc = datetime.datetime.fromisoformat(fixture["fixture"]["date"].replace("Z", "+00:00"))
-            match_time_kiev = match_time_utc.astimezone(tz)
-
-            if match_time_kiev > now:
-                teams = fixture["teams"]
-                time_str = match_time_kiev.strftime('%H:%M')
-                match_str = f"{teams['home']['name']} vs {teams['away']['name']} в {time_str} (по Киеву)"
-                matches.append(match_str)
-        return matches
-    return []
-
-def find_match_by_name(name):
-    name = translate_to_english(name)
-    tz = pytz.timezone("Europe/Kiev")
-    now = datetime.datetime.now(tz)
-    today = now.date().isoformat()
-    response = requests.get(API_URL.format(date=today), headers=HEADERS)
-    if response.status_code == 200:
-        data = response.json()
-        for fixture in data.get("response", []):
-            home = fixture["teams"]["home"]["name"].lower()
-            away = fixture["teams"]["away"]["name"].lower()
-            full_name = f"{home} vs {away}"
-            if name.lower() in full_name:
-                match_time_utc = datetime.datetime.fromisoformat(fixture["fixture"]["date"].replace("Z", "+00:00"))
-                match_time_kiev = match_time_utc.astimezone(tz)
-                time_str = match_time_kiev.strftime('%H:%M')
-                match_str = f"{fixture['teams']['home']['name']} vs {fixture['teams']['away']['name']} в {time_str} (по Киеву)"
-                return match_str
-    return None
+def get_odds_matches():
+    matches = []
+    now = datetime.datetime.now(datetime.timezone.utc)
+    for league in SOCCER_LEAGUES:
+        url = ODDS_API_URL_TEMPLATE.replace("{league}", league)
+        try:
+            response = requests.get(url)
+            if response.status_code == 200:
+                data = response.json()
+                for match in data:
+                    commence_time = datetime.datetime.fromisoformat(match['commence_time'].replace("Z", "+00:00"))
+                    if commence_time < now:
+                        continue  # Пропустить прошедшие матчи
+                    tz = pytz.timezone("Europe/Kiev")
+                    match_time_kiev = commence_time.astimezone(tz)
+                    time_str = match_time_kiev.strftime('%H:%M')
+                    home = match['home_team']
+                    away = next(t for t in match['teams'] if t != home)
+                    bookmakers = match.get("bookmakers", [])
+                    if bookmakers:
+                        markets = bookmakers[0].get("markets", [])
+                        if markets and "outcomes" in markets[0]:
+                            outcomes = markets[0]["outcomes"]
+                            odds_text = ", ".join([f"{o['name']}: {o['price']}" for o in outcomes])
+                        else:
+                            odds_text = "коэффициенты недоступны"
+                    else:
+                        odds_text = "коэффициенты недоступны"
+                    match_str = f"{home} vs {away} в {time_str} (по Киеву) — {odds_text}"
+                    matches.append(match_str)
+        except:
+            continue
+    return matches
 
 async def start(update: Update, context: CallbackContext):
     keyboard = [
         ["Купить подписку"],
         ["Запросить прогноз"],
         ["Экспресс от AI"],
-        ["Прогноз по матчу"],
         ["Проверить подписку"]
     ]
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
@@ -81,7 +79,7 @@ async def start(update: Update, context: CallbackContext):
     )
 
 async def generate_ai_prediction():
-    matches = get_today_matches()
+    matches = get_odds_matches()
     if not matches:
         return "Сегодня нет матчей или произошла ошибка API."
     match = random.choice(matches)
@@ -91,7 +89,7 @@ async def generate_ai_prediction():
     return f"\U0001F3DF Матч: {match}\n\U0001F3AF Прогноз: {prediction}\n\U0001F916 Комментарий: {comment}"
 
 async def generate_ai_express():
-    matches = get_today_matches()
+    matches = get_odds_matches()
     if len(matches) < 5:
         return "Недостаточно матчей сегодня для экспресса."
     selected = random.sample(matches, 5)
@@ -108,18 +106,6 @@ async def generate_ai_express():
 async def handle_text(update: Update, context: CallbackContext):
     text = update.message.text
     user_id = update.message.from_user.id
-
-    if context.user_data.get('awaiting_match'):
-        context.user_data['awaiting_match'] = False
-        match_name = text
-        found = find_match_by_name(match_name)
-        if found:
-            prediction = random.choice(["П1", "П2", "ТБ 2.5", "ТМ 2.5", "Обе забьют"])
-            comment = "AI проанализировал команды и выбрал лучший исход."
-            await update.message.reply_text(f"\U0001F3DF Матч: {found}\n\U0001F3AF Прогноз: {prediction}\n\U0001F916 Комментарий: {comment}")
-        else:
-            await update.message.reply_text("Матч не найден. Убедитесь, что ввели название правильно.")
-        return
 
     expiry = user_subscriptions.get(user_id)
     if text == "Купить подписку":
@@ -144,13 +130,6 @@ async def handle_text(update: Update, context: CallbackContext):
             await update.message.reply_text(express)
         else:
             await update.message.reply_text("Экспресс доступен только по подписке. Оформите её, чтобы продолжить.")
-
-    elif text == "Прогноз по матчу":
-        if expiry and expiry > datetime.datetime.now():
-            await update.message.reply_text("Введите матч в формате 'Команда1 vs Команда2':")
-            context.user_data['awaiting_match'] = True
-        else:
-            await update.message.reply_text("Доступ только по подписке. Оформите её, чтобы продолжить.")
 
     elif text == "Проверить подписку":
         if expiry and expiry > datetime.datetime.now():
