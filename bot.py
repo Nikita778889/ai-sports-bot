@@ -60,7 +60,10 @@ def get_odds_matches():
                         odds_text = "коэффициенты недоступны"
                     match_str = f"{home} vs {away} в {time_str} (по Киеву) — {odds_text}"
                     matches.append(match_str)
-        except:
+            else:
+                print(f"Ошибка API {response.status_code}: {response.text}")
+        except Exception as e:
+            print(f"Исключение при обращении к API: {e}")
             continue
     return matches
 
