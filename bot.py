@@ -17,27 +17,20 @@ SUBSCRIPTIONS = {
 ODDS_API_KEY = "d0b434508c21688f0655d4eef265b4c5"
 SPORT_KEY = "soccer"
 
-
 def translate_to_english(text):
     try:
         return GoogleTranslator(source='auto', target='en').translate(text)
     except:
         return text
 
-
 def get_odds_matches():
     matches = []
     tz = pytz.timezone("Europe/Kiev")
     now = datetime.datetime.now(tz)
-    end_of_day = now.replace(hour=23, minute=59, second=59)
-
-    from_iso = now.isoformat()
-    to_iso = end_of_day.isoformat()
 
     url = (
-        f"https://api.the-odds-api.com/v4/sports/{SPORT_KEY}/events"
-        f"?apiKey={ODDS_API_KEY}&regions=eu&markets=h2h"
-        f"&commenceTimeFrom={from_iso}&commenceTimeTo={to_iso}&oddsFormat=decimal"
+        f"https://api.the-odds-api.com/v4/sports/{SPORT_KEY}/odds"
+        f"?apiKey={ODDS_API_KEY}&regions=eu&markets=h2h&oddsFormat=decimal"
     )
 
     try:
@@ -60,7 +53,6 @@ def get_odds_matches():
 
     return matches
 
-
 async def start(update: Update, context: CallbackContext):
     keyboard = [
         ["Купить подписку"],
@@ -74,7 +66,6 @@ async def start(update: Update, context: CallbackContext):
         reply_markup=reply_markup
     )
 
-
 async def generate_ai_prediction():
     matches = get_odds_matches()
     if not matches:
@@ -84,7 +75,6 @@ async def generate_ai_prediction():
     prediction = random.choice(options)
     comment = "AI проанализировал форму команд и выбрал наиболее вероятный исход."
     return f"\U0001F3DF Матч: {match}\n\U0001F3AF Прогноз: {prediction}\n\U0001F916 Комментарий: {comment}"
-
 
 async def generate_ai_express():
     matches = get_odds_matches()
@@ -100,7 +90,6 @@ async def generate_ai_express():
         response += f"{i}. {match} — {pred} (коэф. {koef})\n"
     response += f"\n\U0001F4B0 Общий коэф: {round(total_koef, 2)}"
     return response
-
 
 async def handle_text(update: Update, context: CallbackContext):
     text = update.message.text
@@ -136,7 +125,6 @@ async def handle_text(update: Update, context: CallbackContext):
         else:
             await update.message.reply_text("У вас нет активной подписки.")
 
-
 async def handle_subscription_choice(update: Update, context: CallbackContext):
     query = update.callback_query
     await query.answer()
@@ -152,7 +140,6 @@ async def handle_subscription_choice(update: Update, context: CallbackContext):
     elif query.data == "buy_month":
         user_subscriptions[user_id] = now + datetime.timedelta(days=30)
         await query.edit_message_text("Подписка на месяц активирована ✅")
-
 
 if __name__ == '__main__':
     TOKEN = os.getenv("YOUR_TELEGRAM_BOT_TOKEN")
