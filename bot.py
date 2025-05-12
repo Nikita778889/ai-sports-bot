@@ -34,12 +34,12 @@ def get_odds_matches():
     matches = []
     now = datetime.datetime.now(datetime.timezone.utc)
     for league in SOCCER_LEAGUES:
-        url = f"https://api.the-odds-api.com/v4/sports/{league}/odds/?regions=us,uk,eu&markets=h2h&apiKey={ODDS_API_KEY}"
+        url = f"https://api.the-odds-api.com/v4/sports/{league}/odds/?regions=eu&oddsFormat=decimal&markets=h2h&apiKey={ODDS_API_KEY}"
         try:
             response = requests.get(url)
             if response.status_code == 200:
                 data = response.json()
-                print(f"[{league}] получено матчей: {len(data)}")  # DEBUG
+                print(f"[{league}] получено матчей: {len(data)}")
                 for match in data:
                     commence_time = datetime.datetime.fromisoformat(match['commence_time'].replace("Z", "+00:00"))
                     if commence_time < now:
@@ -50,15 +50,14 @@ def get_odds_matches():
                     home = match['home_team']
                     away = next(t for t in match['teams'] if t != home)
                     bookmakers = match.get("bookmakers", [])
+                    print(f"  → {home} vs {away}, bookmakers: {len(bookmakers)}")
+                    odds_text = "коэффициенты недоступны"
                     if bookmakers:
                         markets = bookmakers[0].get("markets", [])
+                        print(f"    → markets: {len(markets)}")
                         if markets and "outcomes" in markets[0]:
                             outcomes = markets[0]["outcomes"]
                             odds_text = ", ".join([f"{o['name']}: {o['price']}" for o in outcomes])
-                        else:
-                            odds_text = "коэффициенты недоступны"
-                    else:
-                        odds_text = "коэффициенты недоступны"
                     match_str = f"{home} vs {away} в {time_str} (по Киеву) — {odds_text}"
                     matches.append(match_str)
             else:
@@ -66,7 +65,7 @@ def get_odds_matches():
         except Exception as e:
             print(f"Исключение при обращении к API {league}: {e}")
             continue
-    print(f"Всего найдено матчей: {len(matches)}")  # DEBUG
+    print(f"Всего найдено матчей: {len(matches)}")
     return matches
 
 async def start(update: Update, context: CallbackContext):
