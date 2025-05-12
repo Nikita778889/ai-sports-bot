@@ -4,7 +4,7 @@ import random
 import requests
 import pytz
 from deep_translator import GoogleTranslator
-from telegram import Update, ReplyKeyboardMarkup, InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton
+from telegram import Update, ReplyKeyboardMarkup, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, CallbackContext, MessageHandler, CallbackQueryHandler, filters
 
 user_subscriptions = {}
@@ -13,9 +13,6 @@ SUBSCRIPTIONS = {
     '2weeks': 14,
     'month': 30,
 }
-
-user_luck = {}
-LUCK_INTERVAL = datetime.timedelta(hours=48)
 
 API_KEY = "1b3004c7259586cf921ab379bc84fd7a"
 API_URL = "https://v3.football.api-sports.io/fixtures?date={date}"
@@ -70,15 +67,13 @@ def find_match_by_name(name):
     return None
 
 async def start(update: Update, context: CallbackContext):
-    keyboard = [[
-        KeyboardButton("Купить подписку"),
-        KeyboardButton("Запросить прогноз"),
-        KeyboardButton("Экспресс от AI")
-    ], [
-        KeyboardButton("Прогноз по матчу"),
-        KeyboardButton("Проверить подписку"),
-        KeyboardButton("Проверить удачу")
-    ]]
+    keyboard = [
+        ["Купить подписку"],
+        ["Запросить прогноз"],
+        ["Экспресс от AI"],
+        ["Прогноз по матчу"],
+        ["Проверить подписку"]
+    ]
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
     await update.message.reply_text(
         "Привет! Я AI Sports Bot. Я анализирую матчи и даю лучшие прогнозы по подписке.\nВыбери действие:",
@@ -109,61 +104,6 @@ async def generate_ai_express():
         response += f"{i}. {match} — {pred} (коэф. {koef})\n"
     response += f"\n\U0001F4B0 Общий коэф: {round(total_koef, 2)}"
     return response
-
-async def show_luck_cells(update: Update, context: CallbackContext):
-    query = update.callback_query
-    await query.answer()
-    user_id = query.from_user.id
-    now = datetime.datetime.now()
-    last_try = user_luck.get(user_id, {}).get("last")
-    is_free_try = not last_try or (now - last_try >= LUCK_INTERVAL)
-
-    cell_count = 5 if is_free_try else 3
-    context.user_data['luck_game'] = {
-        'win_index': random.randint(0, cell_count - 1),
-        'free': is_free_try
-    }
-
-    buttons = [InlineKeyboardButton(str(i + 1), callback_data=f"cell_{i}") for i in range(cell_count)]
-    markup = InlineKeyboardMarkup.from_row(buttons)
-
-    intro_text = "🎲 Бесплатная попытка (раз в 48 часов): одна из 5 ячеек содержит бесплатный прогноз. Выбери ячейку:" if is_free_try \
-        else "💸 Платная попытка за 5$: одна из 3 ячеек содержит бесплатный день доступа. Выбери ячейку:"
-
-    await query.message.reply_text(intro_text, reply_markup=markup)
-    user_luck[user_id] = {'last': now} if is_free_try else user_luck.get(user_id, {})
-
-async def handle_luck_cell(update: Update, context: CallbackContext):
-    query = update.callback_query
-    await query.answer()
-    user_id = query.from_user.id
-    game = context.user_data.get('luck_game')
-    if not game:
-        await query.message.reply_text("Ошибка: нет активной игры.")
-        return
-
-    selected = int(query.data.split('_')[1])
-    win = selected == game['win_index']
-
-    if win:
-        prediction = await generate_ai_prediction()
-        reward_text = "🎉 Вы выиграли бесплатный прогноз!" if game['free'] else "🎉 Победа! Вы получаете 1 день доступа."
-        await query.message.reply_text(f"{reward_text}\n{prediction}")
-    else:
-        fail_text = "😔 Увы, не повезло. Хотите попробовать снова за 5$? В платной попытке 3 ячейки — шанс выше!" if game['free'] \
-            else "😔 Неудача. Попробуйте позже или купите подписку."
-        await query.message.reply_text(fail_text)
-
-    context.user_data['luck_game'] = None
-
-async def handle_callback(update: Update, context: CallbackContext):
-    data = update.callback_query.data
-    if data.startswith("buy_"):
-        await handle_subscription_choice(update, context)
-    elif data == "check_luck":
-        await show_luck_cells(update, context)
-    elif data.startswith("cell_"):
-        await handle_luck_cell(update, context)
 
 async def handle_text(update: Update, context: CallbackContext):
     text = update.message.text
@@ -218,11 +158,6 @@ async def handle_text(update: Update, context: CallbackContext):
         else:
             await update.message.reply_text("У вас нет активной подписки.")
 
-    elif text == "Проверить удачу":
-        keyboard = [[InlineKeyboardButton("🎁 Проверить удачу", callback_data="check_luck")]]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        await update.message.reply_text("🎁 Хочешь испытать удачу? Нажми на кнопку ниже:", reply_markup=reply_markup)
-
 async def handle_subscription_choice(update: Update, context: CallbackContext):
     query = update.callback_query
     await query.answer()
@@ -244,5 +179,5 @@ if __name__ == '__main__':
     app = ApplicationBuilder().token(TOKEN).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
-    app.add_handler(CallbackQueryHandler(handle_callback))
+    app.add_handler(CallbackQueryHandler(handle_subscription_choice))
     app.run_polling()
