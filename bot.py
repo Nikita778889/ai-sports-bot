@@ -14,8 +14,7 @@ SUBSCRIPTIONS = {
     'month': 30,
 }
 
-ODDS_API_KEY = os.getenv("ODDS_API_KEY")
-ODDS_API_URL_TEMPLATE = "https://api.the-odds-api.com/v4/sports/{league}/odds/?regions=eu&markets=h2h&apiKey={}".format(ODDS_API_KEY)
+ODDS_API_KEY = "d0b434508c21688f0655d4eef265b4c5"
 SOCCER_LEAGUES = [
     "soccer_epl",
     "soccer_uefa_champs_league",
@@ -35,7 +34,7 @@ def get_odds_matches():
     matches = []
     now = datetime.datetime.now(datetime.timezone.utc)
     for league in SOCCER_LEAGUES:
-        url = ODDS_API_URL_TEMPLATE.replace("{league}", league)
+        url = f"https://api.the-odds-api.com/v4/sports/{league}/odds/?regions=eu&markets=h2h&apiKey={ODDS_API_KEY}"
         try:
             response = requests.get(url)
             if response.status_code == 200:
@@ -43,7 +42,7 @@ def get_odds_matches():
                 for match in data:
                     commence_time = datetime.datetime.fromisoformat(match['commence_time'].replace("Z", "+00:00"))
                     if commence_time < now:
-                        continue  # Пропустить прошедшие матчи
+                        continue
                     tz = pytz.timezone("Europe/Kiev")
                     match_time_kiev = commence_time.astimezone(tz)
                     time_str = match_time_kiev.strftime('%H:%M')
