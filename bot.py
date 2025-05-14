@@ -9,6 +9,7 @@ from telegram.ext import ApplicationBuilder, CommandHandler, CallbackContext, Me
 
 user_subscriptions = {}
 user_one_time = {}
+user_one_time_express = {}
 SUBSCRIPTIONS = {
     'week': 7,
     '2weeks': 14,
@@ -28,12 +29,10 @@ def get_odds_matches():
     matches = []
     tz = pytz.timezone("Europe/Kiev")
     now = datetime.datetime.now(tz)
-
     url = (
         f"https://api.the-odds-api.com/v4/sports/{SPORT_KEY}/odds"
         f"?apiKey={ODDS_API_KEY}&regions=eu&markets=h2h&oddsFormat=decimal"
     )
-
     try:
         response = requests.get(url)
         if response.status_code == 200:
@@ -51,18 +50,17 @@ def get_odds_matches():
             print(f"Ошибка API: {response.status_code} — {response.text}")
     except Exception as e:
         print(f"Ошибка запроса к OddsAPI: {e}")
-
     return matches
 
 async def start(update: Update, context: CallbackContext):
     keyboard = [
-        ["Купить подписку", "Купить прогноз за $1"],
+        ["Купить подписку", "Купить прогноз за $1", "Купить экспресс за $1"],
         ["Запросить прогноз", "Экспресс от AI"],
         ["Проверить подписку"]
     ]
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
     await update.message.reply_text(
-        "Привет! Я AI Sports Bot. Я анализирую матчи и даю лучшие прогнозы по подписке или разово.\nВыбери действие:",
+        "Привет! Я AI Sports Bot. Я анализирую матчи и даю прогнозы по подписке или разово.\nВыбери действие:",
         reply_markup=reply_markup
     )
 
@@ -110,23 +108,29 @@ async def handle_text(update: Update, context: CallbackContext):
         user_one_time[user_id] = True
         await update.message.reply_text("Вы купили один прогноз. Нажмите 'Запросить прогноз', чтобы получить его.")
 
+    elif text == "Купить экспресс за $1":
+        user_one_time_express[user_id] = True
+        await update.message.reply_text("Вы купили один экспресс. Нажмите 'Экспресс от AI', чтобы получить его.")
+
     elif text == "Запросить прогноз":
         can_predict = (expiry and expiry > now) or user_one_time.get(user_id, False)
         if can_predict:
             prediction = await generate_ai_prediction()
             await update.message.reply_text(prediction)
-            # Если разовый прогноз, сбросим флаг
             if user_one_time.get(user_id):
                 user_one_time[user_id] = False
         else:
             await update.message.reply_text("Сначала оформите подписку или купите прогноз за $1.")
 
     elif text == "Экспресс от AI":
-        if expiry and expiry > now:
+        can_express = (expiry and expiry > now) or user_one_time_express.get(user_id, False)
+        if can_express:
             express = await generate_ai_express()
             await update.message.reply_text(express)
+            if user_one_time_express.get(user_id):
+                user_one_time_express[user_id] = False
         else:
-            await update.message.reply_text("Экспресс доступен только по подписке. Оформите её, чтобы продолжить.")
+            await update.message.reply_text("Сначала оформите подписку или купите экспресс за $1.")
 
     elif text == "Проверить подписку":
         if expiry and expiry > now:
