@@ -65,7 +65,6 @@ async def start(update: Update, context: CallbackContext):
         reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
     )
 
-# Админ: панель и команды
 async def admin_panel(update: Update, context: CallbackContext):
     user_id = update.effective_user.id
     if user_id not in ADMIN_IDS:
@@ -81,7 +80,7 @@ async def list_users(update: Update, context: CallbackContext):
     lines = ['Пользователи и их покупки:']
     now = datetime.datetime.now()
     for uid, exp in user_subscriptions.items():
-        status = f'подписка до {exp.strftime("%Y-%m-%d")}' if exp>now else 'подписка истекла'
+        status = f'подписка до {exp.strftime("%Y-%m-%d")}' if exp > now else 'подписка истекла'
         lines.append(f'- {uid}: {status}')
     for uid, flag in user_one_time.items():
         if flag:
@@ -93,7 +92,6 @@ async def list_users(update: Update, context: CallbackContext):
     await update.callback_query.edit_message_text(text)
 
 async def revoke_subscription(update: Update, context: CallbackContext):
-    # /revoke_sub <user_id>
     user_id = update.effective_user.id
     if user_id not in ADMIN_IDS:
         return await update.message.reply_text('Доступ запрещен.')
@@ -107,7 +105,6 @@ async def revoke_subscription(update: Update, context: CallbackContext):
     await update.message.reply_text('У пользователя нет подписки.')
 
 async def revoke_one_time(update: Update, context: CallbackContext):
-    # /revoke_one <user_id>
     user_id = update.effective_user.id
     if user_id not in ADMIN_IDS:
         return await update.message.reply_text('Доступ запрещен.')
@@ -121,7 +118,6 @@ async def revoke_one_time(update: Update, context: CallbackContext):
     await update.message.reply_text('У пользователя нет разовой покупки прогноза.')
 
 async def revoke_one_express(update: Update, context: CallbackContext):
-    # /revoke_express <user_id>
     user_id = update.effective_user.id
     if user_id not in ADMIN_IDS:
         return await update.message.reply_text('Доступ запрещен.')
@@ -134,7 +130,7 @@ async def revoke_one_express(update: Update, context: CallbackContext):
         return await update.message.reply_text(f'Разовый экспресс пользователя {uid} сброшен.')
     await update.message.reply_text('У пользователя нет разовой покупки экспресса.')
 
-async def generate_ai_prediction(update: Update=None):
+async def generate_ai_prediction():
     matches = get_odds_matches()
     if not matches:
         return 'Сегодня нет матчей или произошла ошибка API.'
@@ -148,63 +144,59 @@ async def generate_ai_express():
         return 'Недостаточно матчей для экспресса.'
     sel = random.sample(matches,5)
     resp = '⚡ Экспресс от AI:\n'
-    for i,m in enumerate(sel,1): resp+=f'{i}. {m}\n'
+    for i, m in enumerate(sel, 1):
+        resp += f'{i}. {m}\n'
     return resp
+
 async def handle_text(update: Update, context: CallbackContext):
     text = update.message.text
     uid = update.message.from_user.id
     now = datetime.datetime.now()
     exp = user_subscriptions.get(uid)
 
-    # Админ-панель
     if text == '/admin':
-        return await admin_panel(update,context)
+        return await admin_panel(update, context)
 
     if text == 'Купить подписку':
-        kb=[[InlineKeyboardButton('1 неделя',callback_data='buy_week'),InlineKeyboardButton('2 недели',callback_data='buy_2weeks'),InlineKeyboardButton('Месяц',callback_data='buy_month')]]
-        return await update.message.reply_text('Выберите срок подписки:',reply_markup=InlineKeyboardMarkup(kb))
+        kb = [[
+            InlineKeyboardButton('1 неделя', callback_data='buy_week'),
+            InlineKeyboardButton('2 недели', callback_data='buy_2weeks'),
+            InlineKeyboardButton('Месяц', callback_data='buy_month')
+        ]]
+        return await update.message.reply_text('Выберите срок подписки:', reply_markup=InlineKeyboardMarkup(kb))
 
     if text == 'Купить прогноз за $1':
         user_one_time[uid] = True
         await update.message.reply_text('Куплен один прогноз. Нажмите "Запросить прогноз".')
-        # Уведомление админу
         for aid in ADMIN_IDS:
-            await context.bot.send_message(chat_id=aid, text=f"Пользователь {uid} купил разовый прогноз.")
+            await context.bot.send_message(chat_id=aid, text=f'Пользователь {uid} купил разовый прогноз.')
         return
 
     if text == 'Купить экспресс за $1':
         user_one_time_express[uid] = True
         await update.message.reply_text('Куплен один экспресс. Нажмите "Экспресс от AI".')
-        # Уведомление админу
         for aid in ADMIN_IDS:
-            await context.bot.send_message(chat_id=aid, text=f"Пользователь {uid} купил разовый экспресс.")
+            await context.bot.send_message(chat_id=aid, text=f'Пользователь {uid} купил разовый экспресс.')
         return
 
     if text == 'Запросить прогноз':
-        if (exp and exp>now) or user_one_time.get(uid,False):
+        if (exp and exp > now) or user_one_time.get(uid, False):
             res = await generate_ai_prediction()
-            if user_one_time.get(uid):
-                user_one_time[uid] = False
-            await update.message.reply_text(res)
-        else:
-            await update.message.reply_text('Сначала оформите подписку или купите прогноз за $1.')
-        return
+            if user_one_time.get(uid): user_one_time[uid] = False
+            return await update.message.reply_text(res)
+        return await update.message.reply_text('Сначала оформите подписку или купите прогноз за $1.')
 
     if text == 'Экспресс от AI':
-        if user_one_time_express.get(uid,False):
+        if user_one_time_express.get(uid, False):
             res = await generate_ai_express()
             user_one_time_express[uid] = False
-            await update.message.reply_text(res)
-        else:
-            await update.message.reply_text('Сначала купите экспресс за $1.')
-        return
+            return await update.message.reply_text(res)
+        return await update.message.reply_text('Сначала купите экспресс за $1.')
 
-    if text=='Проверить подписку':
-        if exp and exp>now:
-            await update.message.reply_text(f'Подписка активна до {exp.strftime("%Y-%m-%d")}')
-        else:
-            await update.message.reply_text('У вас нет подписки.')
-        return
+    if text == 'Проверить подписку':
+        if exp and exp > now:
+            return await update.message.reply_text(f'Подписка активна до {exp.strftime("%Y-%m-%d")}')
+        return await update.message.reply_text('У вас нет подписки.')
 
 async def handle_callback(update: Update, context: CallbackContext):
     q = update.callback_query
@@ -213,14 +205,16 @@ async def handle_callback(update: Update, context: CallbackContext):
     now = datetime.datetime.now()
 
     if q.data == 'admin_stats':
-        total = len(set(list(user_subscriptions.keys()) + list(user_one_time.keys()) + list(user_one_time_express.keys())))
+        total = len(set(user_subscriptions) | set(user_one_time) | set(user_one_time_express))
         subs = sum(1 for d in user_subscriptions.values() if d > now)
         one = sum(1 for v in user_one_time.values() if v)
         ex = sum(1 for v in user_one_time_express.values() if v)
-        return await q.edit_message_text(f'👥Пользователей: {total}
-✅Подписок: {subs}
-🎫Прогнозов: {one}
-⚡Экспрессов: {ex}')
+        return await q.edit_message_text(
+            f'👥 Пользователей: {total}\n'
+            f'✅ Подписок: {subs}\n'
+            f'🎫 Прогнозов: {one}\n'
+            f'⚡ Экспрессов: {ex}'
+        )
 
     if q.data == 'admin_users':
         return await list_users(update, context)
@@ -228,30 +222,17 @@ async def handle_callback(update: Update, context: CallbackContext):
     if q.data.startswith('buy_'):
         days = 7 if q.data == 'buy_week' else 14 if q.data == 'buy_2weeks' else 30
         user_subscriptions[uid] = now + datetime.timedelta(days=days)
-        # Уведомление админу
         for aid in ADMIN_IDS:
-            context.bot.send_message(chat_id=aid, text=f"Пользователь {uid} оформил подписку на {days} дней.")
-        return await q.edit_message_text(f'Подписка на {days} дней активирована ✅')(update: Update, context: CallbackContext):
-    q=update.callback_query; await q.answer(); uid=q.from_user.id; now=datetime.datetime.now()
-    if q.data=='admin_stats':
-        total=len(set(list(user_subscriptions.keys())+list(user_one_time.keys())+list(user_one_time_express.keys())))
-        subs=sum(1 for d in user_subscriptions.values() if d>now)
-        one=sum(1 for v in user_one_time.values() if v)
-        ex=sum(1 for v in user_one_time_express.values() if v)
-        return await q.edit_message_text(f'👥Пользователей: {total}\n✅Подписок: {subs}\n🎫Прогнозов: {one}\n⚡Экспрессов: {ex}')
-    if q.data=='admin_users': return await list_users(update,context)
-    if q.data.startswith('buy_'):
-        days=7 if q.data=='buy_week' else 14 if q.data=='buy_2weeks' else 30
-        user_subscriptions[uid]=now+datetime.timedelta(days=days)
+            await context.bot.send_message(chat_id=aid, text=f'Пользователь {uid} оформил подписку на {days} дней.')
         return await q.edit_message_text(f'Подписка на {days} дней активирована ✅')
 
-if __name__=='__main__':
-    app=ApplicationBuilder().token(os.getenv('YOUR_TELEGRAM_BOT_TOKEN')).build()
-    app.add_handler(CommandHandler('start',start))
-    app.add_handler(CommandHandler('admin',admin_panel))
-    app.add_handler(CommandHandler('revoke_sub',revoke_subscription))
-    app.add_handler(CommandHandler('revoke_one',revoke_one_time))
-    app.add_handler(CommandHandler('revoke_express',revoke_one_express))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND,handle_text))
+if __name__ == '__main__':
+    app = ApplicationBuilder().token(os.getenv('YOUR_TELEGRAM_BOT_TOKEN')).build()
+    app.add_handler(CommandHandler('start', start))
+    app.add_handler(CommandHandler('admin', admin_panel))
+    app.add_handler(CommandHandler('revoke_sub', revoke_subscription))
+    app.add_handler(CommandHandler('revoke_one', revoke_one_time))
+    app.add_handler(CommandHandler('revoke_express', revoke_one_express))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
     app.add_handler(CallbackQueryHandler(handle_callback))
     app.run_polling()
