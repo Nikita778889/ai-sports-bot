@@ -113,7 +113,7 @@ async def handle_text(update: Update, context: CallbackContext):
         await update.message.reply_text("Вы купили один экспресс. Нажмите 'Экспресс от AI', чтобы получить его.")
 
     elif text == "Запросить прогноз":
-        can_predict = (expiry and expiry > now) or user_one_time.get(user_id, False)
+        can_predict = expiry and expiry > now or user_one_time.get(user_id, False)
         if can_predict:
             prediction = await generate_ai_prediction()
             await update.message.reply_text(prediction)
@@ -123,14 +123,12 @@ async def handle_text(update: Update, context: CallbackContext):
             await update.message.reply_text("Сначала оформите подписку или купите прогноз за $1.")
 
     elif text == "Экспресс от AI":
-        can_express = (expiry and expiry > now) or user_one_time_express.get(user_id, False)
-        if can_express:
+        if user_one_time_express.get(user_id, False):
             express = await generate_ai_express()
             await update.message.reply_text(express)
-            if user_one_time_express.get(user_id):
-                user_one_time_express[user_id] = False
+            user_one_time_express[user_id] = False
         else:
-            await update.message.reply_text("Сначала оформите подписку или купите экспресс за $1.")
+            await update.message.reply_text("Экспресс доступен только при разовой покупке за $1.")
 
     elif text == "Проверить подписку":
         if expiry and expiry > now:
