@@ -156,24 +156,82 @@ async def handle_text(update: Update, context: CallbackContext):
     now = datetime.datetime.now()
     exp = user_subscriptions.get(uid)
 
-    if text == '/admin': return await admin_panel(update,context)
+    # Админ-панель
+    if text == '/admin':
+        return await admin_panel(update,context)
+
     if text == 'Купить подписку':
         kb=[[InlineKeyboardButton('1 неделя',callback_data='buy_week'),InlineKeyboardButton('2 недели',callback_data='buy_2weeks'),InlineKeyboardButton('Месяц',callback_data='buy_month')]]
         return await update.message.reply_text('Выберите срок подписки:',reply_markup=InlineKeyboardMarkup(kb))
-    if text == 'Купить прогноз за $1': user_one_time[uid]=True; return await update.message.reply_text('Куплен прогноз. Нажмите запросить прогноз.')
-    if text == 'Купить экспресс за $1': user_one_time_express[uid]=True; return await update.message.reply_text('Куплен экспресс. Нажмите экспресс от AI.')
+
+    if text == 'Купить прогноз за $1':
+        user_one_time[uid] = True
+        await update.message.reply_text('Куплен один прогноз. Нажмите "Запросить прогноз".')
+        # Уведомление админу
+        for aid in ADMIN_IDS:
+            await context.bot.send_message(chat_id=aid, text=f"Пользователь {uid} купил разовый прогноз.")
+        return
+
+    if text == 'Купить экспресс за $1':
+        user_one_time_express[uid] = True
+        await update.message.reply_text('Куплен один экспресс. Нажмите "Экспресс от AI".')
+        # Уведомление админу
+        for aid in ADMIN_IDS:
+            await context.bot.send_message(chat_id=aid, text=f"Пользователь {uid} купил разовый экспресс.")
+        return
+
     if text == 'Запросить прогноз':
         if (exp and exp>now) or user_one_time.get(uid,False):
-            res=await generate_ai_prediction(); user_one_time[uid]=False; return await update.message.reply_text(res)
-        return await update.message.reply_text('Оформи подписку или купи прогноз за $1.')
+            res = await generate_ai_prediction()
+            if user_one_time.get(uid):
+                user_one_time[uid] = False
+            await update.message.reply_text(res)
+        else:
+            await update.message.reply_text('Сначала оформите подписку или купите прогноз за $1.')
+        return
+
     if text == 'Экспресс от AI':
-        if user_one_time_express.get(uid,False): res=await generate_ai_express(); user_one_time_express[uid]=False; return await update.message.reply_text(res)
-        return await update.message.reply_text('Купи экспресс за $1.')
+        if user_one_time_express.get(uid,False):
+            res = await generate_ai_express()
+            user_one_time_express[uid] = False
+            await update.message.reply_text(res)
+        else:
+            await update.message.reply_text('Сначала купите экспресс за $1.')
+        return
+
     if text=='Проверить подписку':
-        if exp and exp>now: return await update.message.reply_text(f'Подписка до {exp.strftime("%Y-%m-%d")}')
-        return await update.message.reply_text('Нет подписки.')
+        if exp and exp>now:
+            await update.message.reply_text(f'Подписка активна до {exp.strftime("%Y-%m-%d")}')
+        else:
+            await update.message.reply_text('У вас нет подписки.')
+        return
 
 async def handle_callback(update: Update, context: CallbackContext):
+    q = update.callback_query
+    await q.answer()
+    uid = q.from_user.id
+    now = datetime.datetime.now()
+
+    if q.data == 'admin_stats':
+        total = len(set(list(user_subscriptions.keys()) + list(user_one_time.keys()) + list(user_one_time_express.keys())))
+        subs = sum(1 for d in user_subscriptions.values() if d > now)
+        one = sum(1 for v in user_one_time.values() if v)
+        ex = sum(1 for v in user_one_time_express.values() if v)
+        return await q.edit_message_text(f'👥Пользователей: {total}
+✅Подписок: {subs}
+🎫Прогнозов: {one}
+⚡Экспрессов: {ex}')
+
+    if q.data == 'admin_users':
+        return await list_users(update, context)
+
+    if q.data.startswith('buy_'):
+        days = 7 if q.data == 'buy_week' else 14 if q.data == 'buy_2weeks' else 30
+        user_subscriptions[uid] = now + datetime.timedelta(days=days)
+        # Уведомление админу
+        for aid in ADMIN_IDS:
+            context.bot.send_message(chat_id=aid, text=f"Пользователь {uid} оформил подписку на {days} дней.")
+        return await q.edit_message_text(f'Подписка на {days} дней активирована ✅')(update: Update, context: CallbackContext):
     q=update.callback_query; await q.answer(); uid=q.from_user.id; now=datetime.datetime.now()
     if q.data=='admin_stats':
         total=len(set(list(user_subscriptions.keys())+list(user_one_time.keys())+list(user_one_time_express.keys())))
