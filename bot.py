@@ -1,4 +1,4 @@
-# [ВЕСЬ ОБНОВЛЕННЫЙ КОД С УЧЁТОМ УСЛОВИЙ И ФИКСОМ ВЫДАЧИ ПРОГНОЗОВ]
+# [ВЕСЬ ОБНОВЛЕННЫЙ КОД С УЧЁТОМ ИСТОРИИ ПОКУПОК И УСЛОВИЙ]
 
 import os
 import datetime
@@ -13,6 +13,7 @@ user_subscriptions = {}
 user_one_time = {}
 user_one_time_express = {}
 payment_requests = {}
+purchase_history = {}  # Добавлено: история покупок
 
 SUBSCRIPTIONS = {
     'week': 7,
@@ -64,6 +65,7 @@ async def admin_panel(update: Update, context: CallbackContext):
     buttons = [
         [InlineKeyboardButton('📊 Статистика', callback_data='admin_stats')],
         [InlineKeyboardButton('👤 Список пользователей', callback_data='admin_users')],
+        [InlineKeyboardButton('🧾 История покупок', callback_data='admin_history')],
         [InlineKeyboardButton('✅ Выдать подписку', callback_data='give_sub')],
         [InlineKeyboardButton('🎫 Выдать прогноз', callback_data='give_one')],
         [InlineKeyboardButton('⚡ Выдать экспресс', callback_data='give_express')],
@@ -146,6 +148,12 @@ async def handle_callback(update: Update, context: CallbackContext):
             if user_one_time_express[u]: lines.append(f'{u}: разовый экспресс')
         return await q.edit_message_text('\n'.join(lines) or 'Нет пользователей.')
 
+    if q.data == 'admin_history':
+        lines = []
+        for uid, entries in purchase_history.items():
+            lines.append(f'{uid}: ' + ', '.join(entries))
+        return await q.edit_message_text('\n'.join(lines) or 'Покупок нет.')
+
     if q.data == 'give_sub':
         context.user_data['admin_action'] = 'give_sub'
         return await q.edit_message_text('Введите ID и срок в днях (пример: 123456789 7)')
@@ -195,16 +203,19 @@ async def process_admin_input(update: Update, context: CallbackContext):
     if action == 'give_sub' and len(parts) == 2:
         uid, days = int(parts[0]), int(parts[1])
         user_subscriptions[uid] = datetime.datetime.now() + datetime.timedelta(days=days)
+        purchase_history.setdefault(uid, []).append(f'Подписка {days}д')
         return await update.message.reply_text(f'Подписка выдана пользователю {uid} на {days} дней.')
 
     if action == 'give_one' and len(parts) == 1:
         uid = int(parts[0])
         user_one_time[uid] = True
+        purchase_history.setdefault(uid, []).append('Разовый прогноз')
         return await update.message.reply_text(f'Разовый прогноз выдан пользователю {uid}.')
 
     if action == 'give_express' and len(parts) == 1:
         uid = int(parts[0])
         user_one_time_express[uid] = True
+        purchase_history.setdefault(uid, []).append('Разовый экспресс')
         return await update.message.reply_text(f'Разовый экспресс выдан пользователю {uid}.')
 
     if action == 'remove_sub' and len(parts) == 1:
