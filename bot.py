@@ -1,4 +1,4 @@
-# [ВЕСЬ ОБНОВЛЕННЫЙ КОД С УЧЁТОМ УСЛОВИЙ]
+# [ВЕСЬ ОБНОВЛЕННЫЙ КОД С УЧЁТОМ УСЛОВИЙ И ФИКСОМ ВЫДАЧИ ПРОГНОЗОВ]
 
 import os
 import datetime
@@ -98,13 +98,13 @@ async def handle_text(update: Update, context: CallbackContext):
         return await update.message.reply_text('Оплатите $1 за экспресс и нажмите «Я оплатил».', reply_markup=btn)
 
     if text == 'Запросить прогноз':
-        if exp and exp > now or user_one_time.get(uid):
+        if exp and exp > now or user_one_time.get(uid) is True:
             user_one_time[uid] = False
             return await update.message.reply_text(await generate_ai_prediction())
         return await update.message.reply_text('Нет доступа. Обратитесь к администратору.')
 
     if text == 'Экспресс от AI':
-        if user_one_time_express.get(uid):
+        if user_one_time_express.get(uid) is True:
             user_one_time_express[uid] = False
             return await update.message.reply_text(await generate_ai_express())
         return await update.message.reply_text('Нет доступа. Обратитесь к администратору.')
