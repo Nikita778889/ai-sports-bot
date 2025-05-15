@@ -86,14 +86,39 @@ async def save_welcome_image(update: Update, context: CallbackContext):
     await file.download_to_drive(WELCOME_IMAGE_FILE)
     await update.message.reply_text('Изображение приветствия обновлено.')
 
-# ===== УВЕДОМЛЕНИЕ О ВЫДАЧЕ ДОСТУПА ПОЛЬЗОВАТЕЛЮ =====
 async def notify_user(context: CallbackContext, user_id: int, message: str):
     try:
         await context.bot.send_message(chat_id=user_id, text=message)
     except Exception as e:
         print(f"Не удалось отправить сообщение пользователю {user_id}: {e}")
 
-# ===== ПРИМЕР: админ выдает доступ =====
+async def handle_callback(update: Update, context: CallbackContext):
+    query = update.callback_query
+    await query.answer()
+    data = query.data
+    admin_id = query.from_user.id
+
+    if admin_id not in ADMIN_IDS:
+        return
+
+    if data.startswith("approve_subscription_"):
+        uid = int(data.split("_")[-1])
+        user_subscriptions[uid] = datetime.datetime.now() + datetime.timedelta(days=7)
+        await notify_user(context, uid, "✅ Ваша подписка активирована на 7 дней!")
+        await query.edit_message_text(f"Пользователю {uid} выдана подписка на 7 дней ✅")
+
+    elif data.startswith("approve_prediction_"):
+        uid = int(data.split("_")[-1])
+        user_one_time[uid] = True
+        await notify_user(context, uid, "✅ Вам выдан один прогноз!")
+        await query.edit_message_text(f"Пользователю {uid} выдан разовый прогноз ✅")
+
+    elif data.startswith("approve_express_"):
+        uid = int(data.split("_")[-1])
+        user_one_time_express[uid] = True
+        await notify_user(context, uid, "✅ Вам выдан экспресс-прогноз!")
+        await query.edit_message_text(f"Пользователю {uid} выдан экспресс-прогноз ✅")
+
 async def give_access(update: Update, context: CallbackContext):
     if update.effective_user.id not in ADMIN_IDS:
         return
