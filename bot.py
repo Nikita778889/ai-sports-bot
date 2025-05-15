@@ -1,4 +1,4 @@
-# [ВЕСЬ ОБНОВЛЕННЫЙ КОД С УЧЁТОМ ИСТОРИИ ПОКУПОК И УСЛОВИЙ]
+# [ОБНОВЛЕННЫЙ ПОЛНЫЙ КОД С ПОДДЕРЖКОЙ WELCOME.TXT И WELCOME.JPG ИЗМЕНЕНИЙ]
 
 import os
 import datetime
@@ -6,14 +6,14 @@ import random
 import requests
 import pytz
 from deep_translator import GoogleTranslator
-from telegram import Update, ReplyKeyboardMarkup, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Update, ReplyKeyboardMarkup, InlineKeyboardButton, InlineKeyboardMarkup, InputFile
 from telegram.ext import ApplicationBuilder, CommandHandler, CallbackContext, MessageHandler, CallbackQueryHandler, filters
 
 user_subscriptions = {}
 user_one_time = {}
 user_one_time_express = {}
 payment_requests = {}
-purchase_history = {}  # Добавлено: история покупок
+purchase_history = {}
 
 SUBSCRIPTIONS = {
     'week': 7,
@@ -23,6 +23,8 @@ SUBSCRIPTIONS = {
 
 ODDS_API_KEY = os.getenv('ODDS_API_KEY', 'd0b434508c21688f0655d4eef265b4c5')
 SPORT_KEY = 'soccer'
+WELCOME_TEXT_FILE = 'welcome.txt'
+WELCOME_IMAGE_FILE = 'welcome.jpg'
 
 ADMIN_IDS = {553253995}
 
@@ -56,7 +58,33 @@ async def start(update: Update, context: CallbackContext):
         ['Запросить прогноз', 'Экспресс от AI'],
         ['Проверить подписку']
     ]
-    await update.message.reply_text('Привет! Я AI Sports Bot. Выбирай действие:', reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True))
+    text = 'Привет!'
+    if os.path.exists(WELCOME_TEXT_FILE):
+        with open(WELCOME_TEXT_FILE, 'r', encoding='utf-8') as f:
+            text = f.read()
+    if os.path.exists(WELCOME_IMAGE_FILE):
+        with open(WELCOME_IMAGE_FILE, 'rb') as img:
+            await update.message.reply_photo(photo=InputFile(img), caption=text, reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True))
+    else:
+        await update.message.reply_text(text, reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True))
+
+async def set_welcome(update: Update, context: CallbackContext):
+    if update.effective_user.id not in ADMIN_IDS:
+        return
+    text = update.message.text.replace('/set_welcome', '').strip()
+    if not text:
+        return await update.message.reply_text('Укажи текст приветствия после команды.')
+    with open(WELCOME_TEXT_FILE, 'w', encoding='utf-8') as f:
+        f.write(text)
+    await update.message.reply_text('Текст приветствия обновлён.')
+
+async def save_welcome_image(update: Update, context: CallbackContext):
+    if update.effective_user.id not in ADMIN_IDS:
+        return
+    photo = update.message.photo[-1]
+    file = await context.bot.get_file(photo.file_id)
+    await file.download_to_drive(WELCOME_IMAGE_FILE)
+    await update.message.reply_text('Изображение приветствия обновлено.')
 
 async def admin_panel(update: Update, context: CallbackContext):
     uid = update.effective_user.id
@@ -243,6 +271,9 @@ if __name__ == '__main__':
     app = ApplicationBuilder().token(os.getenv('YOUR_TELEGRAM_BOT_TOKEN')).build()
     app.add_handler(CommandHandler('start', start))
     app.add_handler(CommandHandler('admin', admin_panel))
+    app.add_handler(CommandHandler('set_welcome', set_welcome))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, route_messages))
+    app.add_handler(MessageHandler(filters.PHOTO, save_welcome_image))
     app.add_handler(CallbackQueryHandler(handle_callback))
     app.run_polling()
+
