@@ -67,6 +67,9 @@ async def admin_panel(update: Update, context: CallbackContext):
         [InlineKeyboardButton('✅ Выдать подписку', callback_data='give_sub')],
         [InlineKeyboardButton('🎫 Выдать прогноз', callback_data='give_one')],
         [InlineKeyboardButton('⚡ Выдать экспресс', callback_data='give_express')],
+        [InlineKeyboardButton('❌ Удалить подписку', callback_data='remove_sub')],
+        [InlineKeyboardButton('❌ Удалить прогноз', callback_data='remove_one')],
+        [InlineKeyboardButton('❌ Удалить экспресс', callback_data='remove_express')]
     ]
     await update.message.reply_text('Панель администратора:', reply_markup=InlineKeyboardMarkup(buttons))
 
@@ -155,6 +158,18 @@ async def handle_callback(update: Update, context: CallbackContext):
         context.user_data['admin_action'] = 'give_express'
         return await q.edit_message_text('Введите ID пользователя для выдачи экспресса:')
 
+    if q.data == 'remove_sub':
+        context.user_data['admin_action'] = 'remove_sub'
+        return await q.edit_message_text('Введите ID пользователя для удаления подписки:')
+
+    if q.data == 'remove_one':
+        context.user_data['admin_action'] = 'remove_one'
+        return await q.edit_message_text('Введите ID пользователя для удаления прогноза:')
+
+    if q.data == 'remove_express':
+        context.user_data['admin_action'] = 'remove_express'
+        return await q.edit_message_text('Введите ID пользователя для удаления экспресса:')
+
 async def generate_ai_prediction():
     matches = get_odds_matches()
     if not matches:
@@ -176,24 +191,47 @@ async def process_admin_input(update: Update, context: CallbackContext):
     action = context.user_data['admin_action']
     context.user_data['admin_action'] = None
     parts = update.message.text.strip().split()
+
     if action == 'give_sub' and len(parts) == 2:
         uid, days = int(parts[0]), int(parts[1])
         user_subscriptions[uid] = datetime.datetime.now() + datetime.timedelta(days=days)
         return await update.message.reply_text(f'Подписка выдана пользователю {uid} на {days} дней.')
+
     if action == 'give_one' and len(parts) == 1:
         uid = int(parts[0])
         user_one_time[uid] = True
         return await update.message.reply_text(f'Разовый прогноз выдан пользователю {uid}.')
+
     if action == 'give_express' and len(parts) == 1:
         uid = int(parts[0])
         user_one_time_express[uid] = True
         return await update.message.reply_text(f'Разовый экспресс выдан пользователю {uid}.')
 
+    if action == 'remove_sub' and len(parts) == 1:
+        uid = int(parts[0])
+        user_subscriptions.pop(uid, None)
+        return await update.message.reply_text(f'Подписка у пользователя {uid} удалена.')
+
+    if action == 'remove_one' and len(parts) == 1:
+        uid = int(parts[0])
+        user_one_time.pop(uid, None)
+        return await update.message.reply_text(f'Прогноз у пользователя {uid} удален.')
+
+    if action == 'remove_express' and len(parts) == 1:
+        uid = int(parts[0])
+        user_one_time_express.pop(uid, None)
+        return await update.message.reply_text(f'Экспресс у пользователя {uid} удален.')
+
+async def route_messages(update: Update, context: CallbackContext):
+    if 'admin_action' in context.user_data:
+        await process_admin_input(update, context)
+    else:
+        await handle_text(update, context)
+
 if __name__ == '__main__':
     app = ApplicationBuilder().token(os.getenv('YOUR_TELEGRAM_BOT_TOKEN')).build()
     app.add_handler(CommandHandler('start', start))
     app.add_handler(CommandHandler('admin', admin_panel))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, process_admin_input))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, route_messages))
     app.add_handler(CallbackQueryHandler(handle_callback))
     app.run_polling()
