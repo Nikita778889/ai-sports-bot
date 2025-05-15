@@ -114,7 +114,7 @@ async def give_access(update: Update, context: CallbackContext):
             user_one_time_express[uid] = True
             await notify_user(context, uid, "✅ Вам выдан экспресс-прогноз!")
         await update.message.reply_text(f"Пользователю {uid} выдан доступ: {access_type}")
-   except Exception as e:
+    except Exception as e:
         await update.message.reply_text(f"Ошибка: {e}")
 
 async def admin_panel(update: Update, context: CallbackContext):
