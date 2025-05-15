@@ -86,6 +86,37 @@ async def save_welcome_image(update: Update, context: CallbackContext):
     await file.download_to_drive(WELCOME_IMAGE_FILE)
     await update.message.reply_text('Изображение приветствия обновлено.')
 
+# ===== УВЕДОМЛЕНИЕ О ВЫДАЧЕ ДОСТУПА ПОЛЬЗОВАТЕЛЮ =====
+async def notify_user(context: CallbackContext, user_id: int, message: str):
+    try:
+        await context.bot.send_message(chat_id=user_id, text=message)
+    except Exception as e:
+        print(f"Не удалось отправить сообщение пользователю {user_id}: {e}")
+
+# ===== ПРИМЕР: админ выдает доступ =====
+async def give_access(update: Update, context: CallbackContext):
+    if update.effective_user.id not in ADMIN_IDS:
+        return
+    args = update.message.text.split()
+    if len(args) != 3:
+        return await update.message.reply_text("Формат: /give user_id type(days/one/express)")
+
+    try:
+        uid = int(args[1])
+        access_type = args[2]
+        if access_type == 'days':
+            user_subscriptions[uid] = datetime.datetime.now() + datetime.timedelta(days=1)
+            await notify_user(context, uid, "✅ Вам выдан доступ по подписке на 1 день!")
+        elif access_type == 'one':
+            user_one_time[uid] = True
+            await notify_user(context, uid, "✅ Вам выдан разовый прогноз!")
+        elif access_type == 'express':
+            user_one_time_express[uid] = True
+            await notify_user(context, uid, "✅ Вам выдан экспресс-прогноз!")
+        await update.message.reply_text(f"Пользователю {uid} выдан доступ: {access_type}")
+   except Exception as e:
+        await update.message.reply_text(f"Ошибка: {e}")
+
 async def admin_panel(update: Update, context: CallbackContext):
     uid = update.effective_user.id
     if uid not in ADMIN_IDS:
@@ -267,13 +298,16 @@ async def route_messages(update: Update, context: CallbackContext):
     else:
         await handle_text(update, context)
 
+# ===== ПОДКЛЮЧЕНИЕ ОБРАБОТЧИКОВ =====
 if __name__ == '__main__':
     app = ApplicationBuilder().token(os.getenv('YOUR_TELEGRAM_BOT_TOKEN')).build()
     app.add_handler(CommandHandler('start', start))
     app.add_handler(CommandHandler('admin', admin_panel))
     app.add_handler(CommandHandler('set_welcome', set_welcome))
+    app.add_handler(CommandHandler('give', give_access))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, route_messages))
     app.add_handler(MessageHandler(filters.PHOTO, save_welcome_image))
     app.add_handler(CallbackQueryHandler(handle_callback))
     app.run_polling()
+
 
