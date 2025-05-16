@@ -125,23 +125,20 @@ async def give_access(update: Update, context: CallbackContext):
         return
     args = update.message.text.split()
     if len(args) != 3:
-        return await update.message.reply_text("Формат: /give user_id type(days/one/express)")
-
-    try:
-        uid = int(args[1])
-        access_type = args[2]
-        if access_type == 'days':
-            user_subscriptions[uid] = datetime.datetime.now() + datetime.timedelta(days=1)
-            await notify_user(context, uid, "✅ Вам выдан доступ по подписке на 1 день!")
-        elif access_type == 'one':
-            user_one_time[uid] = True
-            await notify_user(context, uid, "✅ Вам выдан разовый прогноз!")
-        elif access_type == 'express':
-            user_one_time_express[uid] = True
-            await notify_user(context, uid, "✅ Вам выдан экспресс-прогноз!")
-        await update.message.reply_text(f"Пользователю {uid} выдан доступ: {access_type}")
-    except Exception as e:
-        await update.message.reply_text(f"Ошибка: {e}")
+        return await update.message.reply_text("Формат: /give user_id тип (days/one/express)")
+    uid = int(args[1])
+    typ = args[2]
+    bot = update.get_bot()
+    if typ == 'days':
+        user_subscriptions[uid] = datetime.datetime.now() + datetime.timedelta(days=1)
+        await notify_user(bot, uid, "✅ Вам выдана подписка на 1 день!")
+    elif typ == 'one':
+        user_one_time[uid] = True
+        await notify_user(bot, uid, "✅ Вам выдан один прогноз!")
+    elif typ == 'express':
+        user_one_time_express[uid] = True
+        await notify_user(bot, uid, "✅ Вам выдан экспресс-прогноз!")
+    await update.message.reply_text("✅ Готово.")
 
 
 async def admin_panel(update: Update, context: CallbackContext):
@@ -152,9 +149,9 @@ async def admin_panel(update: Update, context: CallbackContext):
         [InlineKeyboardButton('📊 Статистика', callback_data='admin_stats')],
         [InlineKeyboardButton('👤 Список пользователей', callback_data='admin_users')],
         [InlineKeyboardButton('🧾 История покупок', callback_data='admin_history')],
-        [InlineKeyboardButton('✅ Выдать подписку', callback_data='give_sub')],
-        [InlineKeyboardButton('🎫 Выдать прогноз', callback_data='give_one')],
-        [InlineKeyboardButton('⚡ Выдать экспресс', callback_data='give_express')],
+        [InlineKeyboardButton("Выдать подписку", callback_data=f"approve_subscription_{update.effective_user.id}")],
+        [InlineKeyboardButton("Выдать прогноз", callback_data=f"approve_prediction_{update.effective_user.id}")],
+        [InlineKeyboardButton("Выдать экспресс", callback_data=f"approve_express_{update.effective_user.id}")]
         [InlineKeyboardButton('❌ Удалить подписку', callback_data='remove_sub')],
         [InlineKeyboardButton('❌ Удалить прогноз', callback_data='remove_one')],
         [InlineKeyboardButton('❌ Удалить экспресс', callback_data='remove_express')]
