@@ -86,6 +86,25 @@ async def save_welcome_image(update: Update, context: CallbackContext):
     await file.download_to_drive(WELCOME_IMAGE_FILE)
     await update.message.reply_text('Изображение приветствия обновлено.')
 
+async def notify_user_access(context: CallbackContext, user_id: int, service: str):
+    try:
+        text = f"✅ Вам выдан доступ к услуге: {service}"
+        await context.bot.send_message(chat_id=user_id, text=text)
+    except Exception as e:
+        print(f"Ошибка отправки уведомления: {e}")
+
+
+async def give_access_subscription(context: CallbackContext, user_id: int):
+    user_subscriptions[user_id] = datetime.datetime.now() + datetime.timedelta(days=30)
+    await notify_user_access(context, user_id, "Подписка")
+
+async def give_access_prediction(context: CallbackContext, user_id: int):
+    user_one_time[user_id] = True
+    await notify_user_access(context, user_id, "Прогноз")
+
+async def give_access_express(context: CallbackContext, user_id: int):
+    user_one_time_express[user_id] = True
+    await notify_user_access(context, user_id, "Экспресс")
 async def admin_panel(update: Update, context: CallbackContext):
     uid = update.effective_user.id
     if uid not in ADMIN_IDS:
@@ -117,11 +136,15 @@ async def handle_callback(update: Update, context: CallbackContext):
 
 
 async def handle_custom_message(update: Update, context: CallbackContext):
+    print(f"🟡 Получено сообщение от {update.effective_user.id}, ожидается ли ввод ID: {context.user_data.get('awaiting_message_uid')}")
     user_id = update.effective_user.id
     if user_id not in ADMIN_IDS:
         return
 
     if context.user_data.get('awaiting_message_uid'):
+        if not update.message or not update.message.text:
+            await update.message.reply_text("Ожидается текстовое сообщение.")
+            return
         try:
             text = update.message.text
             if not text or ';' not in text:
