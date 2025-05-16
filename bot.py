@@ -324,7 +324,7 @@ if __name__ == '__main__':
     app.add_handler(CommandHandler('start', start))
     app.add_handler(CommandHandler('admin', admin_panel))
     app.add_handler(CommandHandler('set_welcome', set_welcome))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, route_messages))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_custom_message))
     app.add_handler(MessageHandler(filters.PHOTO, save_welcome_image))
     app.add_handler(CallbackQueryHandler(handle_callback))
     app.run_polling()
