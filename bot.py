@@ -97,38 +97,47 @@ async def give_access_express(context: CallbackContext, user_id: int):
 # остальной код без изменений ниже...
 
 # ПРИМЕР ВСТАВКИ В АДМИН-КОЛБЭК:
-elif data == 'give_sub':
-    context.user_data['awaiting_uid'] = 'give_sub'
-    await query.message.reply_text("Введите ID пользователя для выдачи подписки:")
-elif context.user_data.get('awaiting_uid') == 'give_sub':
-    try:
-        user_id = int(update.message.text)
-        await give_access_subscription(context, user_id)
-        await update.message.reply_text("Подписка выдана.")
-        context.user_data['awaiting_uid'] = None
-    except Exception as e:
-        await update.message.reply_text("Ошибка выдачи подписки.")
+async def handle_text(update: Update, context: CallbackContext):
+    text = update.message.text
 
-elif data == 'give_one':
-    context.user_data['awaiting_uid'] = 'give_one'
-    await query.message.reply_text("Введите ID пользователя для выдачи прогноза:")
-elif context.user_data.get('awaiting_uid') == 'give_one':
-    try:
-        user_id = int(update.message.text)
-        await give_access_prediction(context, user_id)
-        await update.message.reply_text("Прогноз выдан.")
+    if context.user_data.get('awaiting_uid') == 'give_sub':
+        try:
+            user_id = int(text)
+            await give_access_subscription(context, user_id)
+            await update.message.reply_text("Подписка выдана.")
+        except Exception:
+            await update.message.reply_text("Ошибка выдачи подписки.")
         context.user_data['awaiting_uid'] = None
-    except Exception as e:
-        await update.message.reply_text("Ошибка выдачи прогноза.")
 
-elif data == 'give_express':
-    context.user_data['awaiting_uid'] = 'give_express'
-    await query.message.reply_text("Введите ID пользователя для выдачи экспресса:")
-elif context.user_data.get('awaiting_uid') == 'give_express':
-    try:
-        user_id = int(update.message.text)
-        await give_access_express(context, user_id)
-        await update.message.reply_text("Экспресс выдан.")
+    elif context.user_data.get('awaiting_uid') == 'give_one':
+        try:
+            user_id = int(text)
+            await give_access_prediction(context, user_id)
+            await update.message.reply_text("Прогноз выдан.")
+        except Exception:
+            await update.message.reply_text("Ошибка выдачи прогноза.")
         context.user_data['awaiting_uid'] = None
-    except Exception as e:
-        await update.message.reply_text("Ошибка выдачи экспресса.")
+
+    elif context.user_data.get('awaiting_uid') == 'give_express':
+        try:
+            user_id = int(text)
+            await give_access_express(context, user_id)
+            await update.message.reply_text("Экспресс выдан.")
+        except Exception:
+            await update.message.reply_text("Ошибка выдачи экспресса.")
+        context.user_data['awaiting_uid'] = None
+
+async def handle_callback(update: Update, context: CallbackContext):
+    query = update.callback_query
+    await query.answer()
+    data = query.data
+
+    if data == 'give_sub':
+        context.user_data['awaiting_uid'] = 'give_sub'
+        await query.message.reply_text("Введите ID пользователя для выдачи подписки:")
+    elif data == 'give_one':
+        context.user_data['awaiting_uid'] = 'give_one'
+        await query.message.reply_text("Введите ID пользователя для выдачи прогноза:")
+    elif data == 'give_express':
+        context.user_data['awaiting_uid'] = 'give_express'
+        await query.message.reply_text("Введите ID пользователя для выдачи экспресса:")
