@@ -156,7 +156,7 @@ async def admin_panel(update: Update, context: CallbackContext):
         [InlineKeyboardButton('❌ Удалить прогноз', callback_data='remove_one')],
         [InlineKeyboardButton('❌ Удалить экспресс', callback_data='remove_express')]
     ]
-        markup = InlineKeyboardMarkup(keyboard)
+    markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text("Панель администратора:", reply_markup=markup)
 
 async def handle_text(update: Update, context: CallbackContext):
