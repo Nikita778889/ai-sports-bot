@@ -86,61 +86,6 @@ async def save_welcome_image(update: Update, context: CallbackContext):
     await file.download_to_drive(WELCOME_IMAGE_FILE)
     await update.message.reply_text('Изображение приветствия обновлено.')
 
-async def notify_user(bot, user_id: int, message: str):
-    try:
-        await bot.send_message(chat_id=user_id, text=message)
-    except Exception as e:
-        print(f"Не удалось отправить сообщение пользователю {user_id}: {e}")
-
-async def handle_callback(update: Update, context: CallbackContext):
-    query = update.callback_query
-    await query.answer()
-    data = query.data
-    admin_id = query.from_user.id
-    bot = update.get_bot()
-
-    if admin_id not in ADMIN_IDS:
-        return
-
-    if data.startswith("approve_subscription_"):
-        uid = int(data.split("_")[-1])
-        user_subscriptions[uid] = datetime.datetime.now() + datetime.timedelta(days=7)
-        await notify_user(bot, uid, "✅ Ваша подписка активирована на 7 дней!")
-        await query.edit_message_text(f"Пользователю {uid} выдана подписка на 7 дней ✅")
-
-    elif data.startswith("approve_prediction_"):
-        uid = int(data.split("_")[-1])
-        user_one_time[uid] = True
-        await notify_user(bot, uid, "✅ Вам выдан один прогноз!")
-        await query.edit_message_text(f"Пользователю {uid} выдан разовый прогноз ✅")
-
-    elif data.startswith("approve_express_"):
-        uid = int(data.split("_")[-1])
-        user_one_time_express[uid] = True
-        await notify_user(bot, uid, "✅ Вам выдан экспресс-прогноз!")
-        await query.edit_message_text(f"Пользователю {uid} выдан экспресс-прогноз ✅")
-
-async def give_access(update: Update, context: CallbackContext):
-    if update.effective_user.id not in ADMIN_IDS:
-        return
-    args = update.message.text.split()
-    if len(args) != 3:
-        return await update.message.reply_text("Формат: /give user_id тип (days/one/express)")
-    uid = int(args[1])
-    typ = args[2]
-    bot = update.get_bot()
-    if typ == 'days':
-        user_subscriptions[uid] = datetime.datetime.now() + datetime.timedelta(days=1)
-        await notify_user(bot, uid, "✅ Вам выдана подписка на 1 день!")
-    elif typ == 'one':
-        user_one_time[uid] = True
-        await notify_user(bot, uid, "✅ Вам выдан один прогноз!")
-    elif typ == 'express':
-        user_one_time_express[uid] = True
-        await notify_user(bot, uid, "✅ Вам выдан экспресс-прогноз!")
-    await update.message.reply_text("✅ Готово.")
-
-
 async def admin_panel(update: Update, context: CallbackContext):
     uid = update.effective_user.id
     if uid not in ADMIN_IDS:
@@ -149,15 +94,14 @@ async def admin_panel(update: Update, context: CallbackContext):
         [InlineKeyboardButton('📊 Статистика', callback_data='admin_stats')],
         [InlineKeyboardButton('👤 Список пользователей', callback_data='admin_users')],
         [InlineKeyboardButton('🧾 История покупок', callback_data='admin_history')],
-        [InlineKeyboardButton("Выдать подписку", callback_data=f"approve_subscription_{update.effective_user.id}")],
-        [InlineKeyboardButton("Выдать прогноз", callback_data=f"approve_prediction_{update.effective_user.id}")],
-        [InlineKeyboardButton("Выдать экспресс", callback_data=f"approve_express_{update.effective_user.id}")]
+        [InlineKeyboardButton('✅ Выдать подписку', callback_data='give_sub')],
+        [InlineKeyboardButton('🎫 Выдать прогноз', callback_data='give_one')],
+        [InlineKeyboardButton('⚡ Выдать экспресс', callback_data='give_express')],
         [InlineKeyboardButton('❌ Удалить подписку', callback_data='remove_sub')],
         [InlineKeyboardButton('❌ Удалить прогноз', callback_data='remove_one')],
         [InlineKeyboardButton('❌ Удалить экспресс', callback_data='remove_express')]
     ]
-    markup = InlineKeyboardMarkup(keyboard)
-    await update.message.reply_text("Панель администратора:", reply_markup=markup)
+    await update.message.reply_text('Панель администратора:', reply_markup=InlineKeyboardMarkup(buttons))
 
 async def handle_text(update: Update, context: CallbackContext):
     text = update.message.text
@@ -323,16 +267,12 @@ async def route_messages(update: Update, context: CallbackContext):
     else:
         await handle_text(update, context)
 
-# ===== ПОДКЛЮЧЕНИЕ ОБРАБОТЧИКОВ =====
 if __name__ == '__main__':
     app = ApplicationBuilder().token(os.getenv('YOUR_TELEGRAM_BOT_TOKEN')).build()
     app.add_handler(CommandHandler('start', start))
     app.add_handler(CommandHandler('admin', admin_panel))
     app.add_handler(CommandHandler('set_welcome', set_welcome))
-    app.add_handler(CommandHandler('give', give_access))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, route_messages))
     app.add_handler(MessageHandler(filters.PHOTO, save_welcome_image))
     app.add_handler(CallbackQueryHandler(handle_callback))
     app.run_polling()
-
-
