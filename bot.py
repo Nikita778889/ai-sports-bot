@@ -51,7 +51,7 @@ def get_odds_matches():
     except Exception as e:
         print('Ошибка:', e)
     return matches
-
+    
 async def start(update: Update, context: CallbackContext):
     keyboard = [
         ['Купить подписку на месяц 2000 гривен', 'Купить один прогноз 200 гривен', 'Купить Экспресс из 5 событий 400 гривен'],
