@@ -125,6 +125,24 @@ async def admin_panel(update: Update, context: CallbackContext):
     markup = InlineKeyboardMarkup(buttons)
     await update.message.reply_text("Панель администратора:", reply_markup=markup)
 
+async def send_all_command(update: Update, context: CallbackContext):
+    if update.effective_user.id not in ADMIN_IDS:
+        return
+    if not context.args:
+        return await update.message.reply_text("Формат: /sendall сообщение")
+
+    message = ' '.join(context.args)
+    all_users = set(user_subscriptions) | set(user_one_time) | set(user_one_time_express)
+    count = 0
+    for uid in all_users:
+        try:
+            await context.bot.send_message(chat_id=uid, text=message)
+            count += 1
+        except:
+            continue
+    await update.message.reply_text(f"Сообщение отправлено {count} пользователям ✅")
+
+
 async def send_message_command(update: Update, context: CallbackContext):
     if update.effective_user.id not in ADMIN_IDS:
         return
@@ -349,6 +367,7 @@ if __name__ == '__main__':
     app.add_handler(CommandHandler('admin', admin_panel))
     app.add_handler(CommandHandler('set_welcome', set_welcome))
     app.add_handler(CommandHandler('send', send_message_command))
+    app.add_handler(CommandHandler('sendall', send_all_command))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, route_messages))
     app.add_handler(MessageHandler(filters.PHOTO, save_welcome_image))
     app.add_handler(CallbackQueryHandler(handle_callback))
