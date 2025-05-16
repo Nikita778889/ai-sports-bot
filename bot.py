@@ -90,18 +90,56 @@ async def admin_panel(update: Update, context: CallbackContext):
     uid = update.effective_user.id
     if uid not in ADMIN_IDS:
         return
+
     buttons = [
-        [InlineKeyboardButton('📊 Статистика', callback_data='admin_stats')],
-        [InlineKeyboardButton('👤 Список пользователей', callback_data='admin_users')],
-        [InlineKeyboardButton('🧾 История покупок', callback_data='admin_history')],
-        [InlineKeyboardButton('✅ Выдать подписку', callback_data='give_sub')],
-        [InlineKeyboardButton('🎫 Выдать прогноз', callback_data='give_one')],
-        [InlineKeyboardButton('⚡ Выдать экспресс', callback_data='give_express')],
-        [InlineKeyboardButton('❌ Удалить подписку', callback_data='remove_sub')],
-        [InlineKeyboardButton('❌ Удалить прогноз', callback_data='remove_one')],
-        [InlineKeyboardButton('❌ Удалить экспресс', callback_data='remove_express')]
+        [InlineKeyboardButton("📊 Статистика", callback_data='admin_stats')],
+        [InlineKeyboardButton("📋 Список пользователей", callback_data='admin_users')],
+        [InlineKeyboardButton("📜 История покупок", callback_data='admin_history')],
+        [InlineKeyboardButton("✅ Выдать подписку", callback_data='give_sub')],
+        [InlineKeyboardButton("📌 Выдать прогноз", callback_data='give_one')],
+        [InlineKeyboardButton("⚡ Выдать экспресс", callback_data='give_express')],
+        [InlineKeyboardButton("❌ Удалить подписку", callback_data='remove_sub')],
+        [InlineKeyboardButton("❌ Удалить прогноз", callback_data='remove_one')],
+        [InlineKeyboardButton("❌ Удалить экспресс", callback_data='remove_express')],
+        [InlineKeyboardButton("📩 Отправить сообщение", callback_data='send_message')]
     ]
-    await update.message.reply_text('Панель администратора:', reply_markup=InlineKeyboardMarkup(buttons))
+    markup = InlineKeyboardMarkup(buttons)
+    await update.message.reply_text("Панель администратора:", reply_markup=markup)
+
+async def handle_callback(update: Update, context: CallbackContext):
+    query = update.callback_query
+    await query.answer()
+    data = query.data
+
+    if data == 'send_message':
+        context.user_data['awaiting_message_uid'] = True
+        await query.message.reply_text("Введите ID пользователя и сообщение через точку с запятой.\nПример: 123456789;Привет!")
+
+
+async def handle_custom_message(update: Update, context: CallbackContext):
+    user_id = update.effective_user.id
+    if user_id not in ADMIN_IDS:
+        return
+
+    if context.user_data.get('awaiting_message_uid'):
+        try:
+            text = update.message.text
+            if not text or ';' not in text:
+                await update.message.reply_text("Неверный формат. Используйте: ID;сообщение")
+                return
+            target_id_str, message = text.split(';', 1)
+            target_id = int(target_id_str.strip())
+            await context.bot.send_message(chat_id=target_id, text=message.strip())
+            await update.message.reply_text("Сообщение отправлено ✅")
+        except Exception as e:
+            await update.message.reply_text("Ошибка. Убедитесь, что формат: ID;сообщение")
+        finally:
+            context.user_data['awaiting_message_uid'] = False
+
+def setup_handlers(app):
+    app.add_handler(CommandHandler("admin", admin_panel))
+    app.add_handler(CallbackQueryHandler(handle_callback))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_custom_message))
 
 async def handle_text(update: Update, context: CallbackContext):
     text = update.message.text
