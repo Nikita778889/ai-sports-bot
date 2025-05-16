@@ -51,7 +51,7 @@ def get_odds_matches():
     except Exception as e:
         print('Ошибка:', e)
     return matches
-    
+
 async def start(update: Update, context: CallbackContext):
     keyboard = [
         ['Купить подписку на месяц 2000 гривен', 'Купить один прогноз 200 гривен', 'Купить Экспресс из 5 событий 400 гривен'],
@@ -67,46 +67,6 @@ async def start(update: Update, context: CallbackContext):
             await update.message.reply_photo(photo=InputFile(img), caption=text, reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True))
     else:
         await update.message.reply_text(text, reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True))
-
-async def notify_user_access(context: CallbackContext, user_id: int, service: str):
-    try:
-        text = f"✅ Вам выдан доступ к услуге: {service}"
-        await context.bot.send_message(chat_id=user_id, text=text)
-    except Exception as e:
-        print(f"Ошибка отправки уведомления: {e}")
-
-
-async def give_access_subscription(context: CallbackContext, user_id: int):
-    user_subscriptions[user_id] = datetime.datetime.now() + datetime.timedelta(days=30)
-    await notify_user_access(context, user_id, "Подписка")
-
-async def give_access_prediction(context: CallbackContext, user_id: int):
-    user_one_time[user_id] = True
-    await notify_user_access(context, user_id, "Прогноз")
-
-async def give_access_express(context: CallbackContext, user_id: int):
-    user_one_time_express[user_id] = True
-    await notify_user_access(context, user_id, "Экспресс")
-
-async def ask_user_id_for_message(update: Update, context: CallbackContext):
-    uid = update.effective_user.id
-    if uid not in ADMIN_IDS:
-        return
-    context.user_data['awaiting_message_uid'] = True
-    await update.message.reply_text("Введите ID пользователя и сообщение через точку с запятой.\nПример: 123456789;Привет, вы получили бонус!")
-
-async def handle_custom_message(update: Update, context: CallbackContext):
-    if context.user_data.get('awaiting_message_uid'):
-        try:
-            text = update.message.text
-            user_id_str, message = text.split(';', 1)
-            user_id = int(user_id_str.strip())
-            await context.bot.send_message(chat_id=user_id, text=message.strip())
-            await update.message.reply_text("Сообщение отправлено.")
-        except Exception as e:
-            await update.message.reply_text("Ошибка формата. Используйте: ID;сообщение")
-        context.user_data['awaiting_message_uid'] = False
-
 
 async def set_welcome(update: Update, context: CallbackContext):
     if update.effective_user.id not in ADMIN_IDS:
@@ -130,30 +90,18 @@ async def admin_panel(update: Update, context: CallbackContext):
     uid = update.effective_user.id
     if uid not in ADMIN_IDS:
         return
-
     buttons = [
-        [InlineKeyboardButton("📊 Статистика", callback_data='admin_stats')],
-        [InlineKeyboardButton("📋 Список пользователей", callback_data='admin_users')],
-        [InlineKeyboardButton("📜 История покупок", callback_data='admin_history')],
-        [InlineKeyboardButton("✅ Выдать подписку", callback_data='give_sub')],
-        [InlineKeyboardButton("📌 Выдать прогноз", callback_data='give_one')],
-        [InlineKeyboardButton("⚡ Выдать экспресс", callback_data='give_express')],
-        [InlineKeyboardButton("❌ Удалить подписку", callback_data='remove_sub')],
-        [InlineKeyboardButton("❌ Удалить прогноз", callback_data='remove_one')],
-        [InlineKeyboardButton("❌ Удалить экспресс", callback_data='remove_express')],
-        [InlineKeyboardButton("📩 Отправка сообщения", callback_data='send_message')]
+        [InlineKeyboardButton('📊 Статистика', callback_data='admin_stats')],
+        [InlineKeyboardButton('👤 Список пользователей', callback_data='admin_users')],
+        [InlineKeyboardButton('🧾 История покупок', callback_data='admin_history')],
+        [InlineKeyboardButton('✅ Выдать подписку', callback_data='give_sub')],
+        [InlineKeyboardButton('🎫 Выдать прогноз', callback_data='give_one')],
+        [InlineKeyboardButton('⚡ Выдать экспресс', callback_data='give_express')],
+        [InlineKeyboardButton('❌ Удалить подписку', callback_data='remove_sub')],
+        [InlineKeyboardButton('❌ Удалить прогноз', callback_data='remove_one')],
+        [InlineKeyboardButton('❌ Удалить экспресс', callback_data='remove_express')]
     ]
-    markup = InlineKeyboardMarkup(buttons)
-    await update.message.reply_text("Панель администратора:", reply_markup=markup)
-
-async def handle_callback(update: Update, context: CallbackContext):
-    query = update.callback_query
-    await query.answer()
-    data = query.data
-
-    if data == 'send_message':
-        context.user_data['awaiting_message_uid'] = True
-        await query.message.reply_text("Введите ID пользователя и сообщение через точку с запятой.\nПример: 123456789;Привет, вы получили бонус!")
+    await update.message.reply_text('Панель администратора:', reply_markup=InlineKeyboardMarkup(buttons))
 
 async def handle_text(update: Update, context: CallbackContext):
     text = update.message.text
@@ -324,13 +272,7 @@ if __name__ == '__main__':
     app.add_handler(CommandHandler('start', start))
     app.add_handler(CommandHandler('admin', admin_panel))
     app.add_handler(CommandHandler('set_welcome', set_welcome))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_custom_message))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, route_messages))
     app.add_handler(MessageHandler(filters.PHOTO, save_welcome_image))
     app.add_handler(CallbackQueryHandler(handle_callback))
     app.run_polling()
-    app.add_handler(CommandHandler("admin", admin_panel))
-
-def setup_handlers(app):
-    app.add_handler(CommandHandler("admin", admin_panel))
-    app.add_handler(CallbackQueryHandler(handle_callback))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_custom_message))
