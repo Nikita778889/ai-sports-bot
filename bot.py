@@ -86,9 +86,9 @@ async def save_welcome_image(update: Update, context: CallbackContext):
     await file.download_to_drive(WELCOME_IMAGE_FILE)
     await update.message.reply_text('Изображение приветствия обновлено.')
 
-async def notify_user(context: CallbackContext, user_id: int, message: str):
+async def notify_user(bot, user_id: int, message: str):
     try:
-        await context.bot.send_message(chat_id=user_id, text=message)
+        await bot.send_message(chat_id=user_id, text=message)
     except Exception as e:
         print(f"Не удалось отправить сообщение пользователю {user_id}: {e}")
 
@@ -104,7 +104,8 @@ async def handle_callback(update: Update, context: CallbackContext):
     if data.startswith("approve_subscription_"):
         uid = int(data.split("_")[-1])
         user_subscriptions[uid] = datetime.datetime.now() + datetime.timedelta(days=7)
-        await notify_user(context, uid, "✅ Ваша подписка активирована на 7 дней!")
+        bot = update.get_bot()
+        await notify_user(bot, uid, "✅ Ваша подписка активирована на 7 дней!")
         await query.edit_message_text(f"Пользователю {uid} выдана подписка на 7 дней ✅")
 
     elif data.startswith("approve_prediction_"):
@@ -141,6 +142,7 @@ async def give_access(update: Update, context: CallbackContext):
         await update.message.reply_text(f"Пользователю {uid} выдан доступ: {access_type}")
     except Exception as e:
         await update.message.reply_text(f"Ошибка: {e}")
+
 
 async def admin_panel(update: Update, context: CallbackContext):
     uid = update.effective_user.id
