@@ -130,8 +130,7 @@ async def handle_callback(update: Update, context: CallbackContext):
 
     if data == 'send_message':
         context.user_data['awaiting_message_uid'] = True
-        await query.message.reply_text("Введите ID пользователя и сообщение через точку с запятой.
-Пример: 123456789;Привет, вы получили бонус!")
+        await query.message.reply_text("Введите ID пользователя и сообщение через точку с запятой.\nПример: 123456789;Привет, вы получили бонус!")
 
 async def handle_text(update: Update, context: CallbackContext):
     text = update.message.text
