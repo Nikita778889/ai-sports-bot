@@ -112,20 +112,20 @@ async def handle_text(update: Update, context: CallbackContext):
     if text == '/admin':
         return await admin_panel(update, context)
 
-    if text == 'Купить подписку':
+    if text == 'Купить подписку на месяц 2000 гривен':
         payment_requests[uid] = 'sub'
         btn = InlineKeyboardMarkup([[InlineKeyboardButton('Я оплатил', callback_data='paid')]])
-        return await update.message.reply_text('Оплатите подписку $ и нажмите кнопку ниже.', reply_markup=btn)
+        return await update.message.reply_text('Оплатите подписку 2000 гривен и нажмите кнопку ниже.', reply_markup=btn)
 
-    if text == 'Купить прогноз за $1':
+    if text == 'Купить один прогноз 200 гривен':
         payment_requests[uid] = 'one'
         btn = InlineKeyboardMarkup([[InlineKeyboardButton('Я оплатил', callback_data='paid')]])
-        return await update.message.reply_text('Оплатите $1 за прогноз и нажмите «Я оплатил».', reply_markup=btn)
+        return await update.message.reply_text('Оплатите 200 гривен за прогноз и нажмите «Я оплатил».', reply_markup=btn)
 
-    if text == 'Купить экспресс за $1':
+    if text == 'Купить Экспресс из 5 событий 400 гривен':
         payment_requests[uid] = 'express'
         btn = InlineKeyboardMarkup([[InlineKeyboardButton('Я оплатил', callback_data='paid')]])
-        return await update.message.reply_text('Оплатите $1 за экспресс и нажмите «Я оплатил».', reply_markup=btn)
+        return await update.message.reply_text('Оплатите 400 гривен за экспресс и нажмите «Я оплатил».', reply_markup=btn)
 
     if text == 'Запросить прогноз':
         if exp and exp > now or user_one_time.get(uid) is True:
