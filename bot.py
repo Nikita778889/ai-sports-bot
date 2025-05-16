@@ -68,6 +68,25 @@ async def start(update: Update, context: CallbackContext):
     else:
         await update.message.reply_text(text, reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True))
 
+async def ask_user_id_for_message(update: Update, context: CallbackContext):
+    uid = update.effective_user.id
+    if uid not in ADMIN_IDS:
+        return
+    context.user_data['awaiting_message_uid'] = True
+    await update.message.reply_text("Введите ID пользователя и сообщение через точку с запятой.\nПример: 123456789;Привет, вы получили бонус!")
+
+async def handle_custom_message(update: Update, context: CallbackContext):
+    if context.user_data.get('awaiting_message_uid'):
+        try:
+            text = update.message.text
+            user_id_str, message = text.split(';', 1)
+            user_id = int(user_id_str.strip())
+            await context.bot.send_message(chat_id=user_id, text=message.strip())
+            await update.message.reply_text("Сообщение отправлено.")
+        except Exception as e:
+            await update.message.reply_text("Ошибка формата. Используйте: ID;сообщение")
+        context.user_data['awaiting_message_uid'] = False
+
 async def set_welcome(update: Update, context: CallbackContext):
     if update.effective_user.id not in ADMIN_IDS:
         return
@@ -100,8 +119,19 @@ async def admin_panel(update: Update, context: CallbackContext):
         [InlineKeyboardButton('❌ Удалить подписку', callback_data='remove_sub')],
         [InlineKeyboardButton('❌ Удалить прогноз', callback_data='remove_one')],
         [InlineKeyboardButton('❌ Удалить экспресс', callback_data='remove_express')]
+        [InlineKeyboardButton("📩 Отправка сообщения", callback_data='send_message')]
     ]
     await update.message.reply_text('Панель администратора:', reply_markup=InlineKeyboardMarkup(buttons))
+
+async def handle_callback(update: Update, context: CallbackContext):
+    query = update.callback_query
+    await query.answer()
+    data = query.data
+
+    if data == 'send_message':
+        context.user_data['awaiting_message_uid'] = True
+        await query.message.reply_text("Введите ID пользователя и сообщение через точку с запятой.
+Пример: 123456789;Привет, вы получили бонус!")
 
 async def handle_text(update: Update, context: CallbackContext):
     text = update.message.text
