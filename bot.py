@@ -75,6 +75,18 @@ async def notify_user_access(context: CallbackContext, user_id: int, service: st
     except Exception as e:
         print(f"Ошибка отправки уведомления: {e}")
 
+async def give_access_subscription(context: CallbackContext, user_id: int):
+    user_subscriptions[user_id] = datetime.datetime.now() + datetime.timedelta(days=30)
+    await notify_user_access(context, user_id, "Подписка")
+
+async def give_access_prediction(context: CallbackContext, user_id: int):
+    user_one_time[user_id] = True
+    await notify_user_access(context, user_id, "Прогноз")
+
+async def give_access_express(context: CallbackContext, user_id: int):
+    user_one_time_express[user_id] = True
+    await notify_user_access(context, user_id, "Экспресс")
+
 async def set_welcome(update: Update, context: CallbackContext):
     if update.effective_user.id not in ADMIN_IDS:
         return
