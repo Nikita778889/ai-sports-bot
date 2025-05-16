@@ -14,6 +14,7 @@ user_one_time = {}
 user_one_time_express = {}
 payment_requests = {}
 purchase_history = {}
+all_users = set()
 
 SUBSCRIPTIONS = {
     'week': 7,
@@ -51,6 +52,9 @@ def get_odds_matches():
     except Exception as e:
         print('Ошибка:', e)
     return matches
+
+async def start(update: Update, context: CallbackContext):
+    all_users.add(update.effective_user.id)
 
 async def start(update: Update, context: CallbackContext):
     keyboard = [
