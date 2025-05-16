@@ -135,6 +135,9 @@ async def send_all_command(update: Update, context: CallbackContext):
     all_users = set(user_subscriptions) | set(user_one_time) | set(user_one_time_express) | set(payment_requests) | set(purchase_history)
     all_users.add(update.effective_user.id)
     all_users.update(getattr(context.application, 'user_data', {}).keys())
+
+    count = 0
+    for uid in all_users:
         try:
             await context.bot.send_message(chat_id=uid, text=message)
             count += 1
