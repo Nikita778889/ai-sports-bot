@@ -125,6 +125,21 @@ async def admin_panel(update: Update, context: CallbackContext):
     markup = InlineKeyboardMarkup(buttons)
     await update.message.reply_text("Панель администратора:", reply_markup=markup)
 
+async def send_message_command(update: Update, context: CallbackContext):
+    if update.effective_user.id not in ADMIN_IDS:
+        return
+    args = context.args
+    if len(args) < 2:
+        return await update.message.reply_text("Формат: /send ID сообщение")
+    try:
+        target_id = int(args[0])
+        message = ' '.join(args[1:])
+        await context.bot.send_message(chat_id=target_id, text=message)
+        await update.message.reply_text("Сообщение отправлено ✅")
+    except Exception as e:
+        await update.message.reply_text("Ошибка отправки сообщения. Убедитесь, что ID указан верно.")
+
+
 async def handle_callback(update: Update, context: CallbackContext):
     query = update.callback_query
     await query.answer()
@@ -162,7 +177,7 @@ async def handle_custom_message(update: Update, context: CallbackContext):
 def setup_handlers(app):
     app.add_handler(CommandHandler("admin", admin_panel))
     app.add_handler(CallbackQueryHandler(handle_callback))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_custom_message))
+    app.add_handler(CommandHandler("send", send_message_command))
 
 async def handle_text(update: Update, context: CallbackContext):
     text = update.message.text
@@ -333,6 +348,7 @@ if __name__ == '__main__':
     app.add_handler(CommandHandler('start', start))
     app.add_handler(CommandHandler('admin', admin_panel))
     app.add_handler(CommandHandler('set_welcome', set_welcome))
+    app.add_handler(CommandHandler('send', send_message_command))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, route_messages))
     app.add_handler(MessageHandler(filters.PHOTO, save_welcome_image))
     app.add_handler(CallbackQueryHandler(handle_callback))
