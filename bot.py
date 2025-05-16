@@ -328,7 +328,10 @@ if __name__ == '__main__':
     app.add_handler(MessageHandler(filters.PHOTO, save_welcome_image))
     app.add_handler(CallbackQueryHandler(handle_callback))
     app.run_polling()
+    app.add_handler(CommandHandler("admin", admin_panel))
 
 def setup_handlers(app):
+    app.add_handler(CommandHandler("admin", admin_panel))  # ← ЭТУ СТРОКУ ДОБАВЬ
     app.add_handler(CallbackQueryHandler(handle_callback))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_custom_message))
+)
