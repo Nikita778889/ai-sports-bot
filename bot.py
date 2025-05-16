@@ -334,4 +334,3 @@ def setup_handlers(app):
     app.add_handler(CommandHandler("admin", admin_panel))  # ← ЭТУ СТРОКУ ДОБАВЬ
     app.add_handler(CallbackQueryHandler(handle_callback))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_custom_message))
-)
