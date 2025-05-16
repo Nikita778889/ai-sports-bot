@@ -97,6 +97,7 @@ async def handle_callback(update: Update, context: CallbackContext):
     await query.answer()
     data = query.data
     admin_id = query.from_user.id
+    bot = update.get_bot()
 
     if admin_id not in ADMIN_IDS:
         return
@@ -104,21 +105,19 @@ async def handle_callback(update: Update, context: CallbackContext):
     if data.startswith("approve_subscription_"):
         uid = int(data.split("_")[-1])
         user_subscriptions[uid] = datetime.datetime.now() + datetime.timedelta(days=7)
-        bot = update.get_bot()
         await notify_user(bot, uid, "✅ Ваша подписка активирована на 7 дней!")
         await query.edit_message_text(f"Пользователю {uid} выдана подписка на 7 дней ✅")
 
     elif data.startswith("approve_prediction_"):
         uid = int(data.split("_")[-1])
         user_one_time[uid] = True
-        bot = update.get_bot()
         await notify_user(bot, uid, "✅ Вам выдан один прогноз!")
         await query.edit_message_text(f"Пользователю {uid} выдан разовый прогноз ✅")
 
     elif data.startswith("approve_express_"):
         uid = int(data.split("_")[-1])
         user_one_time_express[uid] = True
-        await notify_user(context, uid, "✅ Вам выдан экспресс-прогноз!")
+        await notify_user(bot, uid, "✅ Вам выдан экспресс-прогноз!")
         await query.edit_message_text(f"Пользователю {uid} выдан экспресс-прогноз ✅")
 
 async def give_access(update: Update, context: CallbackContext):
