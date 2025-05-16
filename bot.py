@@ -54,7 +54,7 @@ def get_odds_matches():
 
 async def start(update: Update, context: CallbackContext):
     keyboard = [
-        ['Купить подписку на месяц 2000 гривен', 'Купить один прогноз 200 гривен', 'Купить Экспресс из 5 событий 400 гривен'],
+        ['Купить подписку', 'Купить прогноз за $1', 'Купить экспресс за $1'],
         ['Запросить прогноз', 'Экспресс от AI'],
         ['Проверить подписку']
     ]
@@ -94,69 +94,50 @@ async def admin_panel(update: Update, context: CallbackContext):
         [InlineKeyboardButton('📊 Статистика', callback_data='admin_stats')],
         [InlineKeyboardButton('👤 Список пользователей', callback_data='admin_users')],
         [InlineKeyboardButton('🧾 История покупок', callback_data='admin_history')],
-        [InlineKeyboardButton("Выдать подписку", callback_data=f"approve_subscription_{update.effective_user.id}")],
-        [InlineKeyboardButton("Выдать прогноз", callback_data=f"approve_prediction_{update.effective_user.id}")],
-        [InlineKeyboardButton("Выдать экспресс", callback_data=f"approve_express_{update.effective_user.id}")],
+        [InlineKeyboardButton('✅ Выдать подписку', callback_data='give_sub')],
+        [InlineKeyboardButton('🎫 Выдать прогноз', callback_data='give_one')],
+        [InlineKeyboardButton('⚡ Выдать экспресс', callback_data='give_express')],
         [InlineKeyboardButton('❌ Удалить подписку', callback_data='remove_sub')],
         [InlineKeyboardButton('❌ Удалить прогноз', callback_data='remove_one')],
         [InlineKeyboardButton('❌ Удалить экспресс', callback_data='remove_express')]
     ]
-    markup = InlineKeyboardMarkup(keyboard)
-    await update.message.reply_text("Панель администратора:", reply_markup=markup)
+    await update.message.reply_text('Панель администратора:', reply_markup=InlineKeyboardMarkup(buttons))
 
-async def route_messages(update: Update, context: CallbackContext):
-    user_id = update.effective_user.id
+async def handle_text(update: Update, context: CallbackContext):
     text = update.message.text
+    uid = update.message.from_user.id
+    now = datetime.datetime.now()
+    exp = user_subscriptions.get(uid)
 
-    if text == "Купить подписку на месяц 2000 гривен":
-        await update.message.reply_text("💳 Чтобы купить подписку, отправьте донат и нажмите 'Я оплатил'.")
-        # Здесь можно добавить кнопку для подтверждения
-        return
-    elif text == "Купить один прогноз 200 гривен":
-        await update.message.reply_text("💳 Чтобы купить один прогноз, отправьте донат и нажмите 'Я оплатил'.")
-        return
-    elif text == "Купить Экспресс из 5 событий 400 гривен":
-        await update.message.reply_text("💳 Чтобы купить экспресс, отправьте донат и нажмите 'Я оплатил'.")
-        return
-    elif text == "Проверить подписку":
-        expiry = user_subscriptions.get(user_id)
-        if expiry and expiry > datetime.datetime.now():
-            await update.message.reply_text(f"✅ Ваша подписка активна до {expiry.strftime('%Y-%m-%d')}")
-        else:
-            await update.message.reply_text("🚫 Подписка не активна.")
-        return
-    elif text == "Запросить прогноз":
-        if user_id in user_one_time and user_one_time[user_id]:
-            matches = get_odds_matches()
-            if matches:
-                match = random.choice(matches)
-                prediction = random.choice(["П1", "П2", "ТБ 2.5", "ТМ 2.5", "Обе забьют"])
-                user_one_time[user_id] = False
-                await update.message.reply_text(f"🎯 Прогноз: {match} — {prediction}")
-            else:
-                await update.message.reply_text("⚠️ Сегодня нет матчей или произошла ошибка API.")
-        else:
-            await update.message.reply_text("⚠️ У вас нет доступа к прогнозу.")
-        return
-    elif text == "Экспресс от AI":
-        if user_id in user_one_time_express and user_one_time_express[user_id]:
-            matches = get_odds_matches()
-            if len(matches) >= 5:
-                selected = random.sample(matches, 5)
-                response = "⚡ Экспресс из 5 событий:\n"
-                for i, match in enumerate(selected, 1):
-                    response += f"{i}. {match} — {random.choice(['П1', 'П2', 'ТБ 2.5', 'ТМ 2.5'])}\n"
-                user_one_time_express[user_id] = False
-                await update.message.reply_text(response)
-            else:
-                await update.message.reply_text("⚠️ Недостаточно матчей сегодня для экспресса.")
-        else:
-            await update.message.reply_text("⚠️ У вас нет доступа к экспрессу.")
-        return
+    if text == '/admin':
+        return await admin_panel(update, context)
 
-    # Если не распознано
-    await update.message.reply_text("Команда не распознана. Используйте меню или /start")
+    if text == 'Купить подписку':
+        payment_requests[uid] = 'sub'
+        btn = InlineKeyboardMarkup([[InlineKeyboardButton('Я оплатил', callback_data='paid')]])
+        return await update.message.reply_text('Оплатите подписку $ и нажмите кнопку ниже.', reply_markup=btn)
 
+    if text == 'Купить прогноз за $1':
+        payment_requests[uid] = 'one'
+        btn = InlineKeyboardMarkup([[InlineKeyboardButton('Я оплатил', callback_data='paid')]])
+        return await update.message.reply_text('Оплатите $1 за прогноз и нажмите «Я оплатил».', reply_markup=btn)
+
+    if text == 'Купить экспресс за $1':
+        payment_requests[uid] = 'express'
+        btn = InlineKeyboardMarkup([[InlineKeyboardButton('Я оплатил', callback_data='paid')]])
+        return await update.message.reply_text('Оплатите $1 за экспресс и нажмите «Я оплатил».', reply_markup=btn)
+
+    if text == 'Запросить прогноз':
+        if exp and exp > now or user_one_time.get(uid) is True:
+            user_one_time[uid] = False
+            return await update.message.reply_text(await generate_ai_prediction())
+        return await update.message.reply_text('Нет доступа. Обратитесь к администратору.')
+
+    if text == 'Экспресс от AI':
+        if user_one_time_express.get(uid) is True:
+            user_one_time_express[uid] = False
+            return await update.message.reply_text(await generate_ai_express())
+        return await update.message.reply_text('Нет доступа. Обратитесь к администратору.')
 
     if text == 'Проверить подписку':
         if exp and exp > now:
