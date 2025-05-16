@@ -111,7 +111,8 @@ async def handle_callback(update: Update, context: CallbackContext):
     elif data.startswith("approve_prediction_"):
         uid = int(data.split("_")[-1])
         user_one_time[uid] = True
-        await notify_user(context, uid, "✅ Вам выдан один прогноз!")
+        bot = update.get_bot()
+        await notify_user(bot, uid, "✅ Вам выдан один прогноз!")
         await query.edit_message_text(f"Пользователю {uid} выдан разовый прогноз ✅")
 
     elif data.startswith("approve_express_"):
