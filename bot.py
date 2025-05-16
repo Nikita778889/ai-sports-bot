@@ -68,6 +68,13 @@ async def start(update: Update, context: CallbackContext):
     else:
         await update.message.reply_text(text, reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True))
 
+async def notify_user_access(context: CallbackContext, user_id: int, service: str):
+    try:
+        text = f"✅ Вам выдан доступ к услуге: {service}"
+        await context.bot.send_message(chat_id=user_id, text=text)
+    except Exception as e:
+        print(f"Ошибка отправки уведомления: {e}")
+
 async def set_welcome(update: Update, context: CallbackContext):
     if update.effective_user.id not in ADMIN_IDS:
         return
