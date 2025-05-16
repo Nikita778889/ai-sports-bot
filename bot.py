@@ -68,6 +68,25 @@ async def start(update: Update, context: CallbackContext):
     else:
         await update.message.reply_text(text, reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True))
 
+async def notify_user_access(context: CallbackContext, user_id: int, service: str):
+    try:
+        text = f"✅ Вам выдан доступ к услуге: {service}"
+        await context.bot.send_message(chat_id=user_id, text=text)
+    except Exception as e:
+        print(f"Ошибка отправки уведомления: {e}")
+
+
+async def give_access_subscription(context: CallbackContext, user_id: int):
+    user_subscriptions[user_id] = datetime.datetime.now() + datetime.timedelta(days=30)
+    await notify_user_access(context, user_id, "Подписка")
+
+async def give_access_prediction(context: CallbackContext, user_id: int):
+    user_one_time[user_id] = True
+    await notify_user_access(context, user_id, "Прогноз")
+
+async def give_access_express(context: CallbackContext, user_id: int):
+    user_one_time_express[user_id] = True
+    await notify_user_access(context, user_id, "Экспресс")
 async def ask_user_id_for_message(update: Update, context: CallbackContext):
     uid = update.effective_user.id
     if uid not in ADMIN_IDS:
@@ -86,6 +105,7 @@ async def handle_custom_message(update: Update, context: CallbackContext):
         except Exception as e:
             await update.message.reply_text("Ошибка формата. Используйте: ID;сообщение")
         context.user_data['awaiting_message_uid'] = False
+
 
 async def set_welcome(update: Update, context: CallbackContext):
     if update.effective_user.id not in ADMIN_IDS:
@@ -109,19 +129,21 @@ async def admin_panel(update: Update, context: CallbackContext):
     uid = update.effective_user.id
     if uid not in ADMIN_IDS:
         return
+
     buttons = [
-        [InlineKeyboardButton('📊 Статистика', callback_data='admin_stats')],
-        [InlineKeyboardButton('👤 Список пользователей', callback_data='admin_users')],
-        [InlineKeyboardButton('🧾 История покупок', callback_data='admin_history')],
-        [InlineKeyboardButton('✅ Выдать подписку', callback_data='give_sub')],
-        [InlineKeyboardButton('🎫 Выдать прогноз', callback_data='give_one')],
-        [InlineKeyboardButton('⚡ Выдать экспресс', callback_data='give_express')],
-        [InlineKeyboardButton('❌ Удалить подписку', callback_data='remove_sub')],
-        [InlineKeyboardButton('❌ Удалить прогноз', callback_data='remove_one')],
-        [InlineKeyboardButton('❌ Удалить экспресс', callback_data='remove_express')]
+        [InlineKeyboardButton("📊 Статистика", callback_data='admin_stats')],
+        [InlineKeyboardButton("📋 Список пользователей", callback_data='admin_users')],
+        [InlineKeyboardButton("📜 История покупок", callback_data='admin_history')],
+        [InlineKeyboardButton("✅ Выдать подписку", callback_data='give_sub')],
+        [InlineKeyboardButton("📌 Выдать прогноз", callback_data='give_one')],
+        [InlineKeyboardButton("⚡ Выдать экспресс", callback_data='give_express')],
+        [InlineKeyboardButton("❌ Удалить подписку", callback_data='remove_sub')],
+        [InlineKeyboardButton("❌ Удалить прогноз", callback_data='remove_one')],
+        [InlineKeyboardButton("❌ Удалить экспресс", callback_data='remove_express')],
         [InlineKeyboardButton("📩 Отправка сообщения", callback_data='send_message')]
     ]
-    await update.message.reply_text('Панель администратора:', reply_markup=InlineKeyboardMarkup(buttons))
+    markup = InlineKeyboardMarkup(buttons)
+    await update.message.reply_text("Панель администратора:", reply_markup=markup)
 
 async def handle_callback(update: Update, context: CallbackContext):
     query = update.callback_query
