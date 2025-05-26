@@ -223,10 +223,10 @@ async def handle_text(update: Update, context: CallbackContext):
         btn = InlineKeyboardMarkup([[InlineKeyboardButton('Я сплатив', callback_data='paid')]])
         return await update.message.reply_text('Сплатіть 200 гривень за прогноз та натисніть «Я оплатив».', reply_markup=btn)
 
-    if text == 'Купити Експрес із 5 подій 400 гривень':
+    if text == 'Купити Експрес із 5 подій 500 гривень':
         payment_requests[uid] = 'express'
         btn = InlineKeyboardMarkup([[InlineKeyboardButton('Я сплатив', callback_data='paid')]])
-        return await update.message.reply_text('Сплатіть 400 гривень за експрес та натисніть «Я оплатив».', reply_markup=btn)
+        return await update.message.reply_text('Сплатіть 500 гривень за експрес та натисніть «Я оплатив».', reply_markup=btn)
 
     if text == 'Запитати прогноз':
         if exp and exp > now or user_one_time.get(uid) is True:
