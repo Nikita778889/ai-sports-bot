@@ -58,9 +58,9 @@ async def start(update: Update, context: CallbackContext):
 
 async def start(update: Update, context: CallbackContext):
     keyboard = [
-        ['Купить подписку на месяц 2000 гривен', 'Купить один прогноз 200 гривен', 'Купить Экспресс из 5 событий 400 гривен'],
-        ['Запросить прогноз', 'Экспресс от AI'],
-        ['Проверить подписку']
+        ['Купити передплату на місяць 2000 гривень', 'Придбати один прогноз 200 гривень', 'Купити Експрес із 5 подій 500 гривень'],
+        ['Запитати прогноз', 'Експрес від AI'],
+        ['Перевірити передплату']
     ]
     text = 'Привет!'
     if os.path.exists(WELCOME_TEXT_FILE):
@@ -213,37 +213,37 @@ async def handle_text(update: Update, context: CallbackContext):
     if text == '/admin':
         return await admin_panel(update, context)
 
-    if text == 'Купить подписку на месяц 2000 гривен':
+    if text == 'Купити передплату на місяць 2000 гривень':
         payment_requests[uid] = 'sub'
-        btn = InlineKeyboardMarkup([[InlineKeyboardButton('Я оплатил', callback_data='paid')]])
-        return await update.message.reply_text('Оплатите подписку 2000 гривен и нажмите кнопку ниже.', reply_markup=btn)
+        btn = InlineKeyboardMarkup([[InlineKeyboardButton('Я сплатив', callback_data='paid')]])
+        return await update.message.reply_text('Оплатіть підписку 2000 гривень та натисніть кнопку нижче.', reply_markup=btn)
 
-    if text == 'Купить один прогноз 200 гривен':
+    if text == 'Придбати один прогноз 200 гривень':
         payment_requests[uid] = 'one'
-        btn = InlineKeyboardMarkup([[InlineKeyboardButton('Я оплатил', callback_data='paid')]])
-        return await update.message.reply_text('Оплатите 200 гривен за прогноз и нажмите «Я оплатил».', reply_markup=btn)
+        btn = InlineKeyboardMarkup([[InlineKeyboardButton('Я сплатив', callback_data='paid')]])
+        return await update.message.reply_text('Сплатіть 200 гривень за прогноз та натисніть «Я оплатив».', reply_markup=btn)
 
-    if text == 'Купить Экспресс из 5 событий 400 гривен':
+    if text == 'Купити Експрес із 5 подій 400 гривень':
         payment_requests[uid] = 'express'
-        btn = InlineKeyboardMarkup([[InlineKeyboardButton('Я оплатил', callback_data='paid')]])
-        return await update.message.reply_text('Оплатите 400 гривен за экспресс и нажмите «Я оплатил».', reply_markup=btn)
+        btn = InlineKeyboardMarkup([[InlineKeyboardButton('Я сплатив', callback_data='paid')]])
+        return await update.message.reply_text('Сплатіть 400 гривень за експрес та натисніть «Я оплатив».', reply_markup=btn)
 
-    if text == 'Запросить прогноз':
+    if text == 'Запитати прогноз':
         if exp and exp > now or user_one_time.get(uid) is True:
             user_one_time[uid] = False
             return await update.message.reply_text(await generate_ai_prediction())
-        return await update.message.reply_text('Нет доступа. Обратитесь к администратору.')
+        return await update.message.reply_text('Нема доступу. Зверніться до адміністратора.')
 
-    if text == 'Экспресс от AI':
+    if text == 'Експрес від AI':
         if user_one_time_express.get(uid) is True:
             user_one_time_express[uid] = False
             return await update.message.reply_text(await generate_ai_express())
-        return await update.message.reply_text('Нет доступа. Обратитесь к администратору.')
+        return await update.message.reply_text('Нема доступу. Зверніться до адміністратора.')
 
-    if text == 'Проверить подписку':
+    if text == 'Перевірити передплату':
         if exp and exp > now:
-            return await update.message.reply_text(f'Подписка активна до {exp.strftime("%Y-%m-%d")}')
-        return await update.message.reply_text('Подписка не активна.')
+            return await update.message.reply_text(f'Передплата активна до {exp.strftime("%Y-%m-%d")}')
+        return await update.message.reply_text('Передплата не активна.')
 
 async def handle_callback(update: Update, context: CallbackContext):
     q = update.callback_query
@@ -256,7 +256,7 @@ async def handle_callback(update: Update, context: CallbackContext):
             return await q.edit_message_text('Нет активного запроса.')
         for aid in ADMIN_IDS:
             await context.bot.send_message(aid, f'Пользователь {uid} оплатил покупку: {req}')
-        return await q.edit_message_text('Спасибо! Ожидайте активации.')
+        return await q.edit_message_text('Дякую! Чекайте на активацію.')
 
     now = datetime.datetime.now()
     if q.data == 'admin_stats':
