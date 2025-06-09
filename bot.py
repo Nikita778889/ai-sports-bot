@@ -216,7 +216,7 @@ async def handle_text(update: Update, context: CallbackContext):
     if text == 'Купити передплату на місяць 2000 гривень':
         payment_requests[uid] = 'sub'
         btn = InlineKeyboardMarkup([[InlineKeyboardButton('Я сплатив', callback_data='paid')]])
-        return await update.message.reply_text('Оплатіть підписку 2000 гривень та натисніть кнопку нижче.Карта для оплати в описі.', reply_markup=btn)
+        return await update.message.reply_text('Оплатіть підписку 2000 гривень та натисніть кнопку нижче. Карта для оплати в описі.', reply_markup=btn)
 
     if text == 'Придбати один прогноз 200 гривень':
         payment_requests[uid] = 'one'
