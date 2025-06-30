@@ -216,17 +216,17 @@ async def handle_text(update: Update, context: CallbackContext):
     if text == 'Купити передплату на місяць 2000 гривень':
         payment_requests[uid] = 'sub'
         btn = InlineKeyboardMarkup([[InlineKeyboardButton('Я сплатив', callback_data='paid')]])
-        return await update.message.reply_text('Оплатіть підписку 2000 гривень та натисніть кнопку нижче. Карта для оплати в описі.', reply_markup=btn)
+        return await update.message.reply_text('Сплатіть 2000 гривень. Карту для оплати вказано в описі. Після оплати напишіть адміну — @footballadminbet.', reply_markup=btn)
 
     if text == 'Придбати один прогноз 200 гривень':
         payment_requests[uid] = 'one'
         btn = InlineKeyboardMarkup([[InlineKeyboardButton('Я сплатив', callback_data='paid')]])
-        return await update.message.reply_text('Сплатіть 200 гривень за прогноз та натисніть «Я оплатив». Карта для оплати в описі.', reply_markup=btn)
+        return await update.message.reply_text('Сплатіть 200 гривень. Карту для оплати вказано в описі. Після оплати напишіть адміну — @footballadminbet.', reply_markup=btn)
 
     if text == 'Купити Експрес із 5 подій 500 гривень':
         payment_requests[uid] = 'express'
         btn = InlineKeyboardMarkup([[InlineKeyboardButton('Я сплатив', callback_data='paid')]])
-        return await update.message.reply_text('Сплатіть 500 гривень за експрес та натисніть «Я оплатив». Карта для оплати в описі.', reply_markup=btn)
+        return await update.message.reply_text('Сплатіть 500 гривень. Карту для оплати вказано в описі. Після оплати напишіть адміну — @footballadminbet.', reply_markup=btn)
 
     if text == 'Запитати прогноз':
         if exp and exp > now or user_one_time.get(uid) is True:
